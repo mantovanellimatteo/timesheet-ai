@@ -141,3 +141,6 @@ Oppure usa il **Generatore IA** integrato: descrivi la regola in italiano (anche
 ## Licenza
 
 Uso interno aziendale — Smeup SpA
+
+---
+*Sviluppato da Matteo Mantovanelli con Google Antigravity*
