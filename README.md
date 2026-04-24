@@ -44,11 +44,14 @@ L'applicazione non si limita più al controllo degli errori, ma offre statistich
 
 ---
 
-## Requisiti
+## Requisiti Hardware & Software (Server/VM)
 
-- Python 3.10+
-- [Ollama](https://ollama.com/) installato con il modello `gemma2:2b`
-- 8–12 GB RAM consigliati (la VM ESXi non richiede GPU)
+- **OS:** Linux (Ubuntu Server consigliato)
+- **CPU:** Minimo 4 vCPU (8 vCPU consigliate per ridurre i tempi di inferenza dell'IA senza GPU dedicata)
+- **RAM:** 8–12 GB consigliati
+- **Disco:** ~20 GB di spazio libero (necessari per OS, librerie Python e pesi del modello LLM)
+- **Rete:** IP statico per la VM e Reverse Proxy opzionale sulla porta 8000
+- **Software:** Python 3.10+ e [Ollama](https://ollama.com/) installato con il modello `gemma2:2b`
 
 ---
 
