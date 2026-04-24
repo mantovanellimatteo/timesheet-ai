@@ -1,0 +1,32 @@
+# Ambiente Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+venv/
+env/
+
+# Database (contiene le regole personali)
+*.db
+*.sqlite
+*.sqlite3
+
+# File sensibili e di deploy (contengono credenziali)
+../../deploy_app.py
+../../update_ui.py
+../../update_server.py
+../../remote_deploy.sh
+../../timesheet_web_app.tar.gz
+
+# File di sistema Mac
+.DS_Store
+.AppleDouble
+
+# Editor
+.vscode/
+.idea/
+*.swp
+
+# Log
+*.log

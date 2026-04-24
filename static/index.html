@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Timesheet-AI | Smeup</title>
+    <!-- tsParticles Bundle -->
+    <script src="https://cdn.jsdelivr.net/npm/tsparticles@2/tsparticles.bundle.min.js"></script>
+    <!-- html2pdf -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body data-theme="dark">
+    <div id="tsparticles"></div>
+    <div class="glass-container">
+        <header>
+            <button class="theme-toggle" onclick="toggleTheme()" id="theme-btn">☀️ Light</button>
+            <img src="logo.png" alt="Smeup Logo" class="logo">
+            <h1>Timesheet-AI</h1>
+            <p>Agent AI offline per il controllo automatico dei timesheet</p>
+        </header>
+
+        <main>
+            <div class="tabs">
+                <button class="tab-btn active" onclick="showTab('upload-tab')">Upload & Analisi</button>
+                <button class="tab-btn" onclick="showTab('rules-tab')">Motore Regole</button>
+            </div>
+
+            <!-- UPLOAD TAB -->
+            <section id="upload-tab" class="tab-content active">
+                <div class="upload-zone" id="drop-zone">
+                    <p>Trascina qui il tuo file CSV o Excel</p>
+                    <input type="file" id="file-input" accept=".csv,.xlsx,.xls" hidden>
+                    <button class="btn primary" onclick="document.getElementById('file-input').click()">Seleziona File</button>
+                </div>
+
+                <!-- Preview file + Confirm -->
+                <div id="file-preview" class="hidden" style="display:none; text-align:center; margin-bottom:20px;">
+                    <div style="background: rgba(166,29,51,0.08); border: 1px solid rgba(166,29,51,0.3); border-radius:12px; padding:20px; margin-bottom:15px;">
+                        <div style="font-size:2.5rem; margin-bottom:8px;">📄</div>
+                        <div id="selected-filename" style="font-weight:800; color: var(--accent); font-size:1.1rem; margin-bottom:4px;"></div>
+                        <div id="selected-filesize" style="color: var(--text-secondary); font-size:0.85rem;"></div>
+                    </div>
+                    <button class="btn primary" id="btn-start-analysis" onclick="startAnalysis()" style="font-size:1.1rem; padding: 14px 40px; letter-spacing: 1px;">
+                        ✨ Avvia Analisi
+                    </button>
+                    <button class="btn secondary" onclick="resetUpload()" style="margin-left:10px; padding:14px 20px;">↩ Cambia File</button>
+                </div>
+                
+                <div class="settings">
+                    <label for="ip-select">IP Agent IA:</label>
+                    <div class="ip-wrapper">
+                        <select id="ip-select" onchange="handleIPSelection()">
+                            <!-- Popolato da JS -->
+                        </select>
+                        <input type="text" id="new-ip-input" placeholder="es. 192.168.1.50" style="display:none;" />
+                    </div>
+                </div>
+
+                <!-- Magic overlay -->
+                <div id="magic-overlay" class="hidden">
+                    <div class="magic-stars" id="magic-stars"></div>
+                    <div class="magic-text">Stiamo facendo la magia...</div>
+                    <div class="magic-sub">L'agente AI sta analizzando il tuo timesheet</div>
+                </div>
+
+                <div id="loading" class="hidden">
+                    <div class="spinner"></div>
+                    <p>Elaborazione in corso... L'IA sta leggendo le descrizioni.</p>
+                </div>
+
+                <div id="results-container" class="hidden">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
+                        <div>
+                            <h3 style="display: inline-block; margin-right: 10px;">Esito Controllo</h3>
+                            <span id="report-filename" style="color: var(--text-secondary); font-size: 0.9rem; font-weight: 600;"></span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 15px;">
+                            <label class="filter-toggle">
+                                <input type="checkbox" id="filter-errors" checked onchange="toggleFilter()">
+                                Mostra solo righe con errori o avvisi
+                            </label>
+                            <button class="btn primary" style="padding: 5px 15px; font-size: 0.9rem;" onclick="exportPDF()">Esporta PDF</button>
+                        </div>
+                    </div>
+                    <div class="table-wrapper">
+                        <table id="results-table">
+                            <thead>
+                                <tr id="table-head"></tr>
+                            </thead>
+                            <tbody id="table-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- RULES TAB -->
+            <section id="rules-tab" class="tab-content">
+                <div class="rule-builder">
+                    <h3>Aggiungi Regola Avanzata (Python)</h3>
+                    
+                    <div class="ai-generator" style="background: rgba(166, 29, 51, 0.08); padding: 15px; border-radius: 8px; margin-top: 15px; margin-bottom: 20px; border: 1px solid rgba(166, 29, 51, 0.3);">
+                        <h4 style="color: var(--accent); margin-bottom: 10px;">✨ Genera Regola con IA</h4>
+                        <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 10px;">Descrivi la regola in italiano. L'IA la tradurrà in Python per te.</p>
+                        <textarea id="ai-prompt" placeholder="Es. Se la colonna 'Tipo' è Gettoni, l'orario di lavoro non può essere dopo le 18:00" rows="2" style="width: 100%; margin-bottom: 10px; background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); color: white; padding: 10px; border-radius: 8px;"></textarea>
+                        <button class="btn primary" onclick="generateWithAI()" id="btn-generate-ai">Genera Logica Python</button>
+                    </div>
+
+                    <p style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 15px;">
+                        Scrivi una condizione logica. Se la condizione è <strong>Vera</strong>, scatterà l'errore.<br>
+                        <em>Esempio: <code>str(row.get('Commessa','')).upper() == 'GETTONI' and float(row.get('Ore', 0)) > 8</code></em>
+                    </p>
+                    
+                    <div class="rule-inputs" style="flex-direction: column; align-items: stretch;">
+                        <input type="text" id="r-name" placeholder="Nome Regola (es. Controllo Gettoni)">
+                        
+                        <textarea id="r-expr" placeholder="Condizione Python (es. row.get('Tipo') == 'Consuntivo')" rows="3" style="background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); color: white; padding: 10px; border-radius: 8px; width: 100%; font-family: monospace;"></textarea>
+                        
+                        <input type="text" id="r-msg" placeholder="Messaggio di errore personalizzato">
+                        
+                        <button id="btn-save-rule" class="btn secondary" style="align-self: flex-start; margin-top: 10px;" onclick="addRule()">Salva Regola</button>
+                    </div>
+                </div>
+
+                <div class="existing-rules">
+                    <h3>Regole Attive</h3>
+                    <ul id="rules-list"></ul>
+                </div>
+            </section>
+        </main>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>
