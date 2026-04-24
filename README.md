@@ -6,6 +6,15 @@ Sviluppato per **Smeup** — Sistema basato su Google Gemma 2 (2B) tramite Ollam
 
 ---
 
+## 📸 Screenshots
+
+| Upload & Analisi | Dashboard Risultati | Motore Regole |
+|:---:|:---:|:---:|
+| <img src="docs/dashboard.png" width="280"/> | <img src="docs/analisi.png" width="280"/> | <img src="docs/regole.png" width="280"/> |
+| *Home page di caricamento* | *Risultati, Bande Rosse e Chart.js* | *Generatore regole con AI* |
+
+---
+
 ## 🚀 NOVITÀ Versione 2.0: Dashboard Manageriale
 L'applicazione non si limita più al controllo degli errori, ma offre statistiche in tempo reale:
 - **Grafico a Torta (Gruppi):** Mostra la percentuale di ore impiegate per ogni *Gruppo Timesheet*.
