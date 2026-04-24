@@ -8,6 +8,7 @@
     <script src="https://cdn.jsdelivr.net/npm/tsparticles@2/tsparticles.bundle.min.js"></script>
     <!-- html2pdf -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body data-theme="dark">
@@ -84,6 +85,23 @@
                             <button class="btn primary" style="padding: 5px 15px; font-size: 0.9rem;" onclick="exportPDF()">Esporta PDF</button>
                         </div>
                     </div>
+                    
+                    <!-- Area Grafici -->
+                    <div id="stats-container" style="display: flex; gap: 20px; margin-bottom: 25px; flex-wrap: wrap;">
+                        <div class="chart-card" style="flex: 1; min-width: 300px; background: var(--bg-card); padding: 15px; border-radius: 12px; border: 1px solid var(--border);">
+                            <h4 style="text-align: center; margin-bottom: 10px; color: var(--text-secondary); font-size: 0.95rem;">Distribuzione Ore per Gruppo</h4>
+                            <div style="position: relative; height: 220px; width: 100%; display: flex; justify-content: center;">
+                                <canvas id="chart-gruppo"></canvas>
+                            </div>
+                        </div>
+                        <div class="chart-card" style="flex: 1; min-width: 300px; background: var(--bg-card); padding: 15px; border-radius: 12px; border: 1px solid var(--border);">
+                            <h4 style="text-align: center; margin-bottom: 10px; color: var(--text-secondary); font-size: 0.95rem;">Numero Interventi per Account</h4>
+                            <div style="position: relative; height: 220px; width: 100%; display: flex; justify-content: center;">
+                                <canvas id="chart-account"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="table-wrapper">
                         <table id="results-table">
                             <thead>

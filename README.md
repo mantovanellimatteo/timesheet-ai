@@ -6,6 +6,14 @@ Sviluppato per **Smeup** — Sistema basato su Google Gemma 2 (2B) tramite Ollam
 
 ---
 
+## 🚀 NOVITÀ Versione 2.0: Dashboard Manageriale
+L'applicazione non si limita più al controllo degli errori, ma offre statistiche in tempo reale:
+- **Grafico a Torta (Gruppi):** Mostra la percentuale di ore impiegate per ogni *Gruppo Timesheet*.
+- **Grafico a Barre (Clienti):** Mostra il numero di interventi totali per ogni *Account* o Cliente.
+- **Supporto PDF:** La dashboard interattiva viene automaticamente stampata in prima pagina nell'export PDF!
+
+---
+
 ## Funzionalità
 
 - 📂 **Upload CSV/Excel** — Caricamento file con rilevamento automatico dell'encoding

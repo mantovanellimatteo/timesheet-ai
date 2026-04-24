@@ -218,6 +218,10 @@ function resetUpload() {
     document.getElementById('drop-zone').classList.remove('hidden');
     document.getElementById('file-input').value = '';
     
+    // Distruggi grafici
+    if (chartGruppo) { chartGruppo.destroy(); chartGruppo = null; }
+    if (chartAccount) { chartAccount.destroy(); chartAccount = null; }
+    
     // Ripristina lo stato del drop-zone
     document.getElementById('btn-select-file').classList.remove('hidden');
     document.getElementById('btn-new-file').classList.add('hidden');
@@ -251,6 +255,7 @@ function startAnalysis() {
         if (data.status === 'success') {
             currentData = data.data;
             renderTable(currentData);
+            generateCharts(currentData);
             document.getElementById('drop-zone').classList.remove('hidden');
             
             // Cambia l'UI del drop-zone per invitare a un nuovo report
@@ -384,6 +389,157 @@ function renderTable(data) {
 
 function toggleFilter() {
     renderTable(currentData);
+}
+
+// ===== CHART.JS DASHBOARD =====
+let chartGruppo = null;
+let chartAccount = null;
+
+const smeupPalette = [
+    '#A61D33', '#D32F2F', '#E57373', '#FF5252', '#B71C1C',
+    '#424242', '#757575', '#BDBDBD', '#EF5350', '#8E0000',
+    '#F44336', '#9E9E9E'
+];
+
+function safeFloatJS(val) {
+    if (!val) return 0;
+    if (typeof val === 'string') {
+        val = val.replace(',', '.').trim();
+    }
+    const num = parseFloat(val);
+    return isNaN(num) ? 0 : num;
+}
+
+function generateCharts(data) {
+    if (chartGruppo) chartGruppo.destroy();
+    if (chartAccount) chartAccount.destroy();
+
+    const sumGruppo = {};
+    const countAccount = {};
+    let totalOreGruppo = 0;
+
+    data.forEach(row => {
+        // Cerca colonna Gruppo (Somma Ore)
+        let ore = 0;
+        if ('Consuntivo Ore' in row) ore = safeFloatJS(row['Consuntivo Ore']);
+        else if ('Ore' in row) ore = safeFloatJS(row['Ore']);
+        else ore = 1;
+
+        let gruppo = 'Sconosciuto';
+        if ('Gruppo Timesheet' in row) gruppo = row['Gruppo Timesheet'];
+        else if ('Gruppo TimeSheet' in row) gruppo = row['Gruppo TimeSheet'];
+        else if ('Gruppo' in row) gruppo = row['Gruppo'];
+        
+        if (gruppo !== undefined && gruppo !== null) {
+            gruppo = String(gruppo).trim();
+            if (gruppo !== '') {
+                sumGruppo[gruppo] = (sumGruppo[gruppo] || 0) + ore;
+                totalOreGruppo += ore;
+            }
+        }
+
+        // Cerca colonna Account (Conteggio Occorrenze)
+        let account = 'Nessun Account';
+        if ('Account' in row) account = row['Account'];
+        else if ('Cliente' in row) account = row['Cliente'];
+        
+        if (account !== undefined && account !== null) {
+            account = String(account).trim();
+            if (account !== '') countAccount[account] = (countAccount[account] || 0) + 1;
+        }
+    });
+
+    const isDarkMode = document.body.getAttribute('data-theme') === 'dark';
+    const textColor = isDarkMode ? '#e2e8f0' : '#1e293b';
+
+    const renderPie = (ctxId, sortedData, totalOre) => {
+        const ctx = document.getElementById(ctxId).getContext('2d');
+        const labels = sortedData.map(x => x[0]);
+        const dataVals = sortedData.map(x => x[1]);
+        
+        return new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: dataVals,
+                    backgroundColor: smeupPalette,
+                    borderWidth: 2,
+                    borderColor: isDarkMode ? '#1e293b' : '#ffffff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'right',
+                        labels: { color: textColor, font: { family: 'Nunito', size: 11 } }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const val = context.parsed;
+                                const perc = totalOre > 0 ? ((val / totalOre) * 100).toFixed(1) : 0;
+                                return ` ${context.label}: ${perc}% (${val.toFixed(1)} ore)`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    };
+
+    const renderBar = (ctxId, sortedData) => {
+        const ctx = document.getElementById(ctxId).getContext('2d');
+        const labels = sortedData.map(x => x[0]);
+        const dataVals = sortedData.map(x => x[1]);
+        
+        return new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Interventi',
+                    data: dataVals,
+                    backgroundColor: '#A61D33',
+                    borderRadius: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: { 
+                        beginAtZero: true, 
+                        ticks: { color: textColor, precision: 0, font: { family: 'Nunito' } },
+                        grid: { color: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }
+                    },
+                    x: { 
+                        ticks: { color: textColor, font: { family: 'Nunito', size: 10 } },
+                        grid: { display: false }
+                    }
+                },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return ` ${context.parsed.y} interventi`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    };
+
+    // Ordina i valori dal più grande al più piccolo
+    const sortedGruppo = Object.entries(sumGruppo).sort((a,b) => b[1] - a[1]);
+    const sortedAccount = Object.entries(countAccount).sort((a,b) => b[1] - a[1]);
+
+    chartGruppo = renderPie('chart-gruppo', sortedGruppo, totalOreGruppo);
+    chartAccount = renderBar('chart-account', sortedAccount);
 }
 
 // EXPORT PDF
