@@ -9,6 +9,8 @@
     <!-- html2pdf -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Confetti -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body data-theme="dark">
@@ -16,7 +18,7 @@
     <div class="glass-container">
         <header>
             <button class="theme-toggle" onclick="toggleTheme()" id="theme-btn">☀️ Light</button>
-            <img src="logo.png" alt="Smeup Logo" class="logo">
+            <img src="logo.png" alt="Smeup Logo" class="logo" onclick="triggerEasterEgg()" style="cursor: pointer; position: relative; z-index: 100;">
             <h1>Timesheet-AI</h1>
             <p>Agent AI offline per il controllo automatico dei timesheet</p>
         </header>
