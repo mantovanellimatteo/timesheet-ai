@@ -9,6 +9,8 @@ Sviluppato per **Smeup** — Sistema basato su Google Gemma 2 (2B) tramite Ollam
 ## Funzionalità
 
 - 📂 **Upload CSV/Excel** — Caricamento file con rilevamento automatico dell'encoding
+- 🧠 **Motore Regole V2 (Cross-Row)** — Le regole possono aggregare dati su più righe (es. ore mensili)
+- 🛡️ **Parser Intelligente** — La funzione `safe_float()` converte "3,5" in 3.5 e ignora celle vuote senza crash
 - 🔴 **Bande di Errore** — Visualizzazione degli errori come bande rosse sopra le righe errate
 - ✨ **Animazione Magica** — Animazione con stelle durante l'elaborazione AI
 - 🤖 **Generatore Regole IA** — Descrivi la regola in italiano, l'AI genera il codice Python
@@ -94,21 +96,25 @@ timesheet-ai/
 
 ---
 
-## Come usare il Rule Engine
+## Come usare il Motore Regole V2
 
-Le regole si basano su espressioni Python dove `row` è il dizionario della riga del file.
+Le regole si basano su espressioni Python. Hai a disposizione:
+- `row`: la singola riga analizzata (Dizionario)
+- `rows`: tutte le righe del documento (Lista di Dizionari, utile per il cross-row)
+- `safe_float(val)`: funzione per convertire numeri con la virgola (2,5) ed evitare crash su celle vuote.
 
-**Esempio — Gettoni non multipli di 15 minuti:**
+**Esempio 1 — Singola Riga (Gettoni errati):**
 ```python
-str(row.get('Gruppo Timesheet', '')).strip().upper() == 'CLI GETTONI' and float(row.get('Ore', 0)) % 0.25 != 0
+str(row.get('Gruppo Timesheet', '')).strip().upper() == 'CLI GETTONI' and safe_float(row.get('Ore')) % 0.25 != 0
 ```
 
-**Esempio — Gettoni fuori orario:**
+**Esempio 2 — Regola Multi-Riga (Somma giornaliera):**
+Se le ore totali di una persona in un giorno superano le 8 ore:
 ```python
-str(row.get('Gruppo Timesheet', '')).strip().upper() == 'CLI GETTONI' and str(row.get('Tipo Orario', '')).strip().upper() == 'FUORI ORARIO LAVORATIVO'
+sum(safe_float(r.get('Ore')) for r in rows if r.get('Data', '') == row.get('Data', '') and r.get('Utente', '') == row.get('Utente', '')) > 8
 ```
 
-Oppure usa il **Generatore IA** integrato: descrivi la regola in italiano e Gemma 2 scriverà il codice Python per te!
+Oppure usa il **Generatore IA** integrato: descrivi la regola in italiano (anche complessa e multi-riga) e Gemma 2 scriverà il codice Python per te!
 
 ---
 

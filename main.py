@@ -107,11 +107,27 @@ def delete_rule(rule_id: int):
     conn.close()
     return {"status": "success"}
 
-def evaluate_rules(row, rules):
+def safe_float(val):
+    try:
+        if isinstance(val, str):
+            val = val.replace(',', '.').strip()
+            if not val:
+                return 0.0
+        return float(val)
+    except:
+        return 0.0
+
+def evaluate_rules(row, rules, all_rows):
     errors = []
-    # Eval context
-    allowed_globals = {"__builtins__": {}}
-    allowed_locals = {"row": row, "str": str, "int": int, "float": float, "len": len, "abs": abs, "pd": pd}
+    # Eval context: usiamo globals perché le list comprehension non risolvono variabili dai locals in eval()
+    allowed_globals = {
+        "__builtins__": {},
+        "row": row, 
+        "rows": all_rows, 
+        "str": str, "int": int, "float": safe_float, "len": len, "abs": abs, "sum": sum, "any": any, "all": all, "pd": pd,
+        "safe_float": safe_float
+    }
+    allowed_locals = {}
     
     for r in rules:
         expr = r['expression']
@@ -175,11 +191,14 @@ async def upload_file(file: UploadFile = File(...), ollama_ip: str = "127.0.0.1"
         results = []
         ollama_url = f"http://{ollama_ip}:11434/api/generate"
         
+        # Prepariamo l'intero set di righe per il cross-row validation
+        all_rows_for_eval = df.to_dict('records')
+        
         for index, row in df.iterrows():
             row_dict = row.to_dict()
             
-            # Controllo Matematico
-            errors = evaluate_rules(row_dict, rules)
+            # Controllo Matematico (Cross-Row supportato)
+            errors = evaluate_rules(row_dict, rules, all_rows_for_eval)
             
             ai_warning = ""
             if len(errors) == 0:
@@ -214,19 +233,25 @@ async def upload_file(file: UploadFile = File(...), ollama_ip: str = "127.0.0.1"
 
 @app.post("/api/generate_rule")
 async def generate_rule(payload: GenerateRuleInput):
-    prompt = f"""Sei un programmatore Python. Il tuo unico compito è convertire la richiesta aziendale in una espressione booleana in Python.
-La riga di un file excel è in un dizionario 'row'. Usa sempre 'str(row.get("NomeColonna", ""))' o 'float(row.get("NomeColonna", 0))'.
+    prompt = f"""Sei un esperto programmatore Python. Il tuo unico compito è convertire la richiesta aziendale in un'espressione logica Python.
+Il dizionario 'row' rappresenta la singola riga analizzata.
+La lista di dizionari 'rows' rappresenta TUTTE le righe del documento. Usala se devi calcolare somme o aggregazioni (usando le list comprehension).
+Hai a disposizione la funzione speciale 'safe_float(valore)' che converte in automatico stringhe vuote o formati con la virgola (es. "3,5") in numeri float validi senza mai andare in crash.
+Usa sempre 'str(row.get("NomeColonna", ""))' e 'safe_float(row.get("NomeColonna", 0))'. Evita KeyError.
 
-Richiesta: "{payload.natural_language}"
+Richiesta dell'utente: "{payload.natural_language}"
 
 Regole ASSOLUTE:
 1. Rispondi ESCLUSIVAMENTE con il codice Python, senza spiegazioni, senza markdown (niente ```), solo testo grezzo.
 2. L'espressione deve restituire True se c'è un ERRORE (la regola è violata), False se la riga è corretta.
 
-Esempio: Se 'Tipo' è 'Gettoni', 'Ore' deve essere multiplo di 0.25.
-Risposta: str(row.get('Tipo')).upper() == 'GETTONI' and float(row.get('Ore', 0)) % 0.25 != 0
+Esempio 1 (Singola Riga): Se 'Tipo' è 'Gettoni', 'Ore' deve essere multiplo di 0.25.
+Risposta: str(row.get('Tipo')).upper() == 'GETTONI' and safe_float(row.get('Ore')) % 0.25 != 0
 
-Ora converti questa richiesta: {payload.natural_language}
+Esempio 2 (Multi-Riga): Le ore totali in una giornata non possono superare 8 per uno stesso utente.
+Risposta: sum(safe_float(r.get('Ore')) for r in rows if r.get('Data', '') == row.get('Data', '') and r.get('Utente', '') == row.get('Utente', '')) > 8
+
+Ora converti la richiesta dell'utente: {payload.natural_language}
 Risposta: """
 
     try:

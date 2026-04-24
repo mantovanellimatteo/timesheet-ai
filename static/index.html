@@ -29,9 +29,10 @@
             <!-- UPLOAD TAB -->
             <section id="upload-tab" class="tab-content active">
                 <div class="upload-zone" id="drop-zone">
-                    <p>Trascina qui il tuo file CSV o Excel</p>
+                    <p id="drop-zone-text">Trascina qui il tuo file CSV o Excel</p>
                     <input type="file" id="file-input" accept=".csv,.xlsx,.xls" hidden>
-                    <button class="btn primary" onclick="document.getElementById('file-input').click()">Seleziona File</button>
+                    <button id="btn-select-file" class="btn primary" onclick="document.getElementById('file-input').click()">Seleziona File</button>
+                    <button id="btn-new-file" class="btn secondary hidden" onclick="resetUpload()">🔄 Chiudi Report e Nuovo File</button>
                 </div>
 
                 <!-- Preview file + Confirm -->

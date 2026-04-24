@@ -190,6 +190,11 @@ function handleFiles(files) {
     if (files.length === 0) return;
     selectedFile = files[0];
     
+    // Assicuriamoci che l'UI del drop-zone sia resettata se ci trascinano un file sopra durante l'analisi
+    document.getElementById('btn-select-file').classList.remove('hidden');
+    document.getElementById('btn-new-file').classList.add('hidden');
+    document.getElementById('drop-zone-text').textContent = "Trascina qui il tuo file CSV o Excel";
+    
     // Show file preview with confirm button
     document.getElementById('drop-zone').classList.add('hidden');
     document.getElementById('results-container').classList.add('hidden');
@@ -207,8 +212,16 @@ function resetUpload() {
     selectedFile = null;
     document.getElementById('file-preview').classList.add('hidden');
     document.getElementById('file-preview').style.display = 'none';
+    document.getElementById('results-container').classList.add('hidden');
+    document.getElementById('table-head').innerHTML = '';
+    document.getElementById('table-body').innerHTML = '';
     document.getElementById('drop-zone').classList.remove('hidden');
     document.getElementById('file-input').value = '';
+    
+    // Ripristina lo stato del drop-zone
+    document.getElementById('btn-select-file').classList.remove('hidden');
+    document.getElementById('btn-new-file').classList.add('hidden');
+    document.getElementById('drop-zone-text').textContent = "Trascina qui il tuo file CSV o Excel";
 }
 
 function startAnalysis() {
@@ -239,6 +252,12 @@ function startAnalysis() {
             currentData = data.data;
             renderTable(currentData);
             document.getElementById('drop-zone').classList.remove('hidden');
+            
+            // Cambia l'UI del drop-zone per invitare a un nuovo report
+            document.getElementById('btn-select-file').classList.add('hidden');
+            document.getElementById('btn-new-file').classList.remove('hidden');
+            document.getElementById('drop-zone-text').textContent = "Report generato. Chiudilo per caricarne uno nuovo.";
+            
         } else {
             alert('Errore: ' + data.detail);
             resetUpload();
