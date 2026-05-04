@@ -548,51 +548,74 @@ function generateCharts(data, isExport = false) {
 function exportPDF() {
     const originalTheme = document.body.getAttribute('data-theme');
     const originalTransition = document.body.style.transition;
+    const element = document.getElementById('results-container');
     
-    // Forza il tema chiaro e disabilita transizioni CSS
+    // 1. Forza il tema chiaro per il ricalcolo di textColor nei grafici
     document.body.style.transition = 'none';
     document.body.setAttribute('data-theme', 'light');
+
+    // 2. Forza esplicitamente le variabili CSS su element. 
+    // In questo modo html2canvas erediterà queste variabili dal nodo corrente, senza cercare nel :root
+    element.style.setProperty('--bg-color', '#ffffff');
+    element.style.setProperty('--text-primary', '#1e293b');
+    element.style.setProperty('--text-secondary', '#475569');
+    element.style.setProperty('--card-bg', '#f1f5f9');
+    element.style.setProperty('--glass-border', 'rgba(166, 29, 51, 0.15)');
+    element.style.setProperty('--table-header', 'rgba(166, 29, 51, 0.05)');
+    element.style.setProperty('--table-hover', 'rgba(166, 29, 51, 0.02)');
+    element.style.backgroundColor = '#ffffff';
+    element.style.color = '#1e293b';
+
+    // 3. Modifica esplicita per i tag H4 che contengono i titoli dei grafici
+    const h4Elements = element.querySelectorAll('h4');
+    h4Elements.forEach(h4 => h4.style.color = '#475569');
+
+    // 4. Rigenera i grafici (disabilitando le animazioni)
     if (currentData && currentData.length > 0) {
-        generateCharts(currentData, true); // true = disabilita animazioni grafici
+        generateCharts(currentData, true);
     }
     
-    // Attendiamo un istante per permettere ai canvas di renderizzarsi con il nuovo tema
+    // Attendiamo 500ms per assicurarci che Chart.js abbia renderizzato il canvas e il DOM sia aggiornato
     setTimeout(() => {
-        const element = document.getElementById('results-container');
         const filenameText = document.getElementById('report-filename').textContent;
         const baseName = filenameText ? filenameText.replace('File: ', '').split('.')[0] : 'Report';
         
         const opt = {
             margin:       0.5,
             filename:     `Timesheet_AI_${baseName}.pdf`,
-            image:        { type: 'jpeg', quality: 0.98 },
+            image:        { type: 'jpeg', quality: 1.0 },
             html2canvas:  { 
                 scale: 2, 
                 useCORS: true,
-                backgroundColor: '#ffffff', // Forza lo sfondo bianco globale per il canvas
-                onclone: function(clonedDoc) {
-                    // Questa funzione agisce sull'iframe nascosto generato da html2canvas.
-                    // Fondamentale perché altrimenti l'iframe non eredita l'attributo data-theme del body
-                    clonedDoc.body.setAttribute('data-theme', 'light');
-                    clonedDoc.getElementById('results-container').style.backgroundColor = '#ffffff';
-                    clonedDoc.getElementById('results-container').style.color = '#1e293b';
-                }
+                backgroundColor: '#ffffff'
             },
             jsPDF:        { unit: 'in', format: 'a4', orientation: 'landscape' }
         };
         
         html2pdf().set(opt).from(element).save().then(() => {
-            // Ripristina il tema originale e le animazioni
+            // Ripristina tutte le variabili CSS e gli stili inline
+            element.style.removeProperty('--bg-color');
+            element.style.removeProperty('--text-primary');
+            element.style.removeProperty('--text-secondary');
+            element.style.removeProperty('--card-bg');
+            element.style.removeProperty('--glass-border');
+            element.style.removeProperty('--table-header');
+            element.style.removeProperty('--table-hover');
+            element.style.backgroundColor = '';
+            element.style.color = '';
+            h4Elements.forEach(h4 => h4.style.color = '');
+            
+            // Ripristina il tema del body
             document.body.setAttribute('data-theme', originalTheme);
-            // Forza reflow prima di riabilitare la transizione
-            void document.body.offsetHeight; 
+            void document.body.offsetHeight; // Forza reflow
             document.body.style.transition = originalTransition;
             
+            // Rigenera i grafici originali
             if (currentData && currentData.length > 0) {
                 generateCharts(currentData, false);
             }
         });
-    }, 150); // Mettiamo 150ms per sicurezza per la renderizzazione del Chart
+    }, 500);
 }
 
 // RULES ENGINE
