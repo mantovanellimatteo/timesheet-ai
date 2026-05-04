@@ -544,19 +544,36 @@ function generateCharts(data) {
 
 // EXPORT PDF
 function exportPDF() {
-    const element = document.getElementById('results-container');
-    const filenameText = document.getElementById('report-filename').textContent;
-    const baseName = filenameText ? filenameText.replace('File: ', '').split('.')[0] : 'Report';
+    const originalTheme = document.body.getAttribute('data-theme');
     
-    const opt = {
-        margin:       0.5,
-        filename:     `Timesheet_AI_${baseName}.pdf`,
-        image:        { type: 'jpeg', quality: 0.98 },
-        html2canvas:  { scale: 2, useCORS: true },
-        jsPDF:        { unit: 'in', format: 'a4', orientation: 'landscape' }
-    };
+    // Forza il tema chiaro per avere testo scuro sul PDF
+    document.body.setAttribute('data-theme', 'light');
+    if (currentData && currentData.length > 0) {
+        generateCharts(currentData);
+    }
     
-    html2pdf().set(opt).from(element).save();
+    // Piccola pausa per permettere al browser di applicare i nuovi stili
+    setTimeout(() => {
+        const element = document.getElementById('results-container');
+        const filenameText = document.getElementById('report-filename').textContent;
+        const baseName = filenameText ? filenameText.replace('File: ', '').split('.')[0] : 'Report';
+        
+        const opt = {
+            margin:       0.5,
+            filename:     `Timesheet_AI_${baseName}.pdf`,
+            image:        { type: 'jpeg', quality: 0.98 },
+            html2canvas:  { scale: 2, useCORS: true },
+            jsPDF:        { unit: 'in', format: 'a4', orientation: 'landscape' }
+        };
+        
+        html2pdf().set(opt).from(element).save().then(() => {
+            // Ripristina il tema originale dopo il salvataggio
+            document.body.setAttribute('data-theme', originalTheme);
+            if (currentData && currentData.length > 0) {
+                generateCharts(currentData);
+            }
+        });
+    }, 150);
 }
 
 // RULES ENGINE

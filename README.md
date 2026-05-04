@@ -15,6 +15,11 @@ Sviluppato per **Smeup** — Sistema basato su Google Gemma 2 (2B) tramite Ollam
 
 ---
 
+## 🚀 NOVITÀ Versione 2.1: Fix Export PDF
+- **Export PDF Intelligente in Dark Mode:** Risolto un bug che rendeva i PDF illeggibili (testo bianco su sfondo bianco) quando si utilizzava il tema scuro o c'erano etichette chiare nei grafici. Il sistema ora converte i colori in automatico in background garantendo documenti perfetti e pronti per un'eventuale stampa.
+
+---
+
 ## 🚀 NOVITÀ Versione 2.0: Dashboard Manageriale
 L'applicazione non si limita più al controllo degli errori, ma offre statistiche in tempo reale:
 - **Grafico a Torta (Gruppi):** Mostra la percentuale di ore impiegate per ogni *Gruppo Timesheet*.
