@@ -556,7 +556,7 @@ function exportPDF() {
         generateCharts(currentData, true); // true = disabilita animazioni grafici
     }
     
-    // Piccola pausa per permettere al browser di applicare i nuovi stili DOM
+    // Attendiamo un istante per permettere ai canvas di renderizzarsi con il nuovo tema
     setTimeout(() => {
         const element = document.getElementById('results-container');
         const filenameText = document.getElementById('report-filename').textContent;
@@ -566,14 +566,25 @@ function exportPDF() {
             margin:       0.5,
             filename:     `Timesheet_AI_${baseName}.pdf`,
             image:        { type: 'jpeg', quality: 0.98 },
-            html2canvas:  { scale: 2, useCORS: true },
+            html2canvas:  { 
+                scale: 2, 
+                useCORS: true,
+                backgroundColor: '#ffffff', // Forza lo sfondo bianco globale per il canvas
+                onclone: function(clonedDoc) {
+                    // Questa funzione agisce sull'iframe nascosto generato da html2canvas.
+                    // Fondamentale perché altrimenti l'iframe non eredita l'attributo data-theme del body
+                    clonedDoc.body.setAttribute('data-theme', 'light');
+                    clonedDoc.getElementById('results-container').style.backgroundColor = '#ffffff';
+                    clonedDoc.getElementById('results-container').style.color = '#1e293b';
+                }
+            },
             jsPDF:        { unit: 'in', format: 'a4', orientation: 'landscape' }
         };
         
         html2pdf().set(opt).from(element).save().then(() => {
             // Ripristina il tema originale e le animazioni
             document.body.setAttribute('data-theme', originalTheme);
-            // Forza reflow prima di riabilitare la transizione per evitare l'animazione di ritorno
+            // Forza reflow prima di riabilitare la transizione
             void document.body.offsetHeight; 
             document.body.style.transition = originalTransition;
             
@@ -581,7 +592,7 @@ function exportPDF() {
                 generateCharts(currentData, false);
             }
         });
-    }, 100);
+    }, 150); // Mettiamo 150ms per sicurezza per la renderizzazione del Chart
 }
 
 // RULES ENGINE
