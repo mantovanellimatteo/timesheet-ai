@@ -410,7 +410,7 @@ function safeFloatJS(val) {
     return isNaN(num) ? 0 : num;
 }
 
-function generateCharts(data) {
+function generateCharts(data, isExport = false) {
     if (chartGruppo) chartGruppo.destroy();
     if (chartAccount) chartAccount.destroy();
 
@@ -469,6 +469,7 @@ function generateCharts(data) {
                 }]
             },
             options: {
+                animation: isExport ? false : true,
                 responsive: true,
                 maintainAspectRatio: false,
                 plugins: {
@@ -507,6 +508,7 @@ function generateCharts(data) {
                 }]
             },
             options: {
+                animation: isExport ? false : true,
                 responsive: true,
                 maintainAspectRatio: false,
                 scales: {
@@ -545,14 +547,16 @@ function generateCharts(data) {
 // EXPORT PDF
 function exportPDF() {
     const originalTheme = document.body.getAttribute('data-theme');
+    const originalTransition = document.body.style.transition;
     
-    // Forza il tema chiaro per avere testo scuro sul PDF
+    // Forza il tema chiaro e disabilita transizioni CSS
+    document.body.style.transition = 'none';
     document.body.setAttribute('data-theme', 'light');
     if (currentData && currentData.length > 0) {
-        generateCharts(currentData);
+        generateCharts(currentData, true); // true = disabilita animazioni grafici
     }
     
-    // Piccola pausa per permettere al browser di applicare i nuovi stili
+    // Piccola pausa per permettere al browser di applicare i nuovi stili DOM
     setTimeout(() => {
         const element = document.getElementById('results-container');
         const filenameText = document.getElementById('report-filename').textContent;
@@ -567,13 +571,17 @@ function exportPDF() {
         };
         
         html2pdf().set(opt).from(element).save().then(() => {
-            // Ripristina il tema originale dopo il salvataggio
+            // Ripristina il tema originale e le animazioni
             document.body.setAttribute('data-theme', originalTheme);
+            // Forza reflow prima di riabilitare la transizione per evitare l'animazione di ritorno
+            void document.body.offsetHeight; 
+            document.body.style.transition = originalTransition;
+            
             if (currentData && currentData.length > 0) {
-                generateCharts(currentData);
+                generateCharts(currentData, false);
             }
         });
-    }, 150);
+    }, 100);
 }
 
 // RULES ENGINE
