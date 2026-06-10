@@ -211,7 +211,7 @@ async def upload_file(file: UploadFile = File(...), ollama_ip: str = "127.0.0.1"
 È professionale e non vaga? Rispondi SOLO 'OK' se va bene, altrimenti scrivi un avviso di max 10 parole."""
                     try:
                         res = requests.post(ollama_url, json={
-                            "model": "gemma2:2b",
+                            "model": "gemma4:e2b",
                             "prompt": prompt,
                             "stream": False,
                             "options": {"temperature": 0.1}
@@ -256,7 +256,7 @@ Risposta: """
 
     try:
         res = requests.post(f"http://{payload.ollama_ip}:11434/api/generate", json={
-            "model": "gemma2:2b",
+            "model": "gemma4:e2b",
             "prompt": prompt,
             "stream": False,
             "options": {"temperature": 0.0}

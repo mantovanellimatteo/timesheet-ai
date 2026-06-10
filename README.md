@@ -2,7 +2,7 @@
 
 **Agent AI offline per il controllo automatico dei timesheet aziendali.**
 
-Sviluppato per **Smeup** — Sistema basato su Google Gemma 2 (2B) tramite Ollama, completamente locale e senza invio di dati all'esterno.
+Sviluppato per **Smeup** — Sistema basato su Google Gemma 4 (E2B) tramite Ollama, completamente locale e senza invio di dati all'esterno.
 
 ---
 
@@ -12,6 +12,12 @@ Sviluppato per **Smeup** — Sistema basato su Google Gemma 2 (2B) tramite Ollam
 |:---:|:---:|:---:|
 | <img src="docs/dashboard.png" width="280"/> | <img src="docs/analisi.png" width="280"/> | <img src="docs/regole.png" width="280"/> |
 | *Home page di caricamento* | *Risultati, Bande Rosse e Chart.js* | *Generatore regole con AI* |
+
+---
+
+## 🚀 NOVITÀ Versione 2.2: Transizione a Gemma 4
+- **Modello IA di ultima generazione:** Aggiornato il modello locale a **Google Gemma 4 (E2B)** per migliori capacità di ragionamento logico, generazione di regole complesse e stabilità nell'interpretazione dei timesheet aziendali.
+- **Rimozione Vecchio Modello:** Disattivato e rimosso Gemma 2 per liberare spazio sulla VM.
 
 ---
 
@@ -49,7 +55,7 @@ L'applicazione non si limita più al controllo degli errori, ma offre statistich
 | Componente | Tecnologia |
 |---|---|
 | Backend | FastAPI (Python) |
-| AI Engine | Google Gemma 2 (2B) via Ollama |
+| AI Engine | Google Gemma 4 (E2B) via Ollama |
 | Database | SQLite |
 | Frontend | HTML, CSS (Vanilla), JavaScript |
 | Font | Nunito (Google Fonts) |
@@ -65,7 +71,7 @@ L'applicazione non si limita più al controllo degli errori, ma offre statistich
 - **RAM:** 8–12 GB consigliati
 - **Disco:** ~20 GB di spazio libero (necessari per OS, librerie Python e pesi del modello LLM)
 - **Rete:** IP statico per la VM e Reverse Proxy opzionale sulla porta 8000
-- **Software:** Python 3.10+ e [Ollama](https://ollama.com/) installato con il modello `gemma2:2b`
+- **Software:** Python 3.10+ e [Ollama](https://ollama.com/) installato con il modello `gemma4:e2b`
 
 ---
 
@@ -97,8 +103,8 @@ Apri il browser su `http://localhost:8000`
 # Installa Ollama (Linux)
 curl -fsSL https://ollama.com/install.sh | sh
 
-# Scarica il modello Gemma 2
-ollama pull gemma2:2b
+# Scarica il modello Gemma 4
+ollama pull gemma4:e2b
 
 # Avvia il server Ollama
 ollama serve
@@ -139,7 +145,7 @@ Se le ore totali di una persona in un giorno superano le 8 ore:
 sum(safe_float(r.get('Ore')) for r in rows if r.get('Data', '') == row.get('Data', '') and r.get('Utente', '') == row.get('Utente', '')) > 8
 ```
 
-Oppure usa il **Generatore IA** integrato: descrivi la regola in italiano (anche complessa e multi-riga) e Gemma 2 scriverà il codice Python per te!
+Oppure usa il **Generatore IA** integrato: descrivi la regola in italiano (anche complessa e multi-riga) e Gemma 4 scriverà il codice Python per te!
 
 ---
 
