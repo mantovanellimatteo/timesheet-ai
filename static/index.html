@@ -165,7 +165,24 @@
                 </div>
             </section>
         </main>
+    <!-- Modal Dettagli Gruppo -->
+    <div id="details-modal" class="modal-overlay hidden" onclick="handleOverlayClick(event)">
+        <div class="modal-card glass">
+            <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 15px; margin-bottom: 15px;">
+                <h3 id="modal-title" style="margin: 0; color: var(--accent); font-family: 'Nunito', sans-serif;">Dettagli Gruppo</h3>
+                <button class="close-btn" onclick="closeModal()" style="background: none; border: none; color: var(--text-secondary); font-size: 1.8rem; cursor: pointer; transition: color 0.2s;">&times;</button>
+            </div>
+            <div class="modal-body" style="overflow-x: auto; max-height: 400px; overflow-y: auto;">
+                <table style="border-collapse: collapse; text-align: left; font-size: 0.9rem; min-width: 550px;">
+                    <thead>
+                        <tr id="modal-table-head" style="border-bottom: 2px solid var(--border);"></tr>
+                    </thead>
+                    <tbody id="modal-table-body"></tbody>
+                </table>
+            </div>
+        </div>
     </div>
+
     <script src="script.js"></script>
 </body>
 </html>

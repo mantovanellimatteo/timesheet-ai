@@ -546,6 +546,16 @@ function generateCharts(data, isExport = false) {
                 }]
             },
             options: {
+                onHover: (event, chartElement) => {
+                    event.native.target.style.cursor = chartElement.length ? 'pointer' : 'default';
+                },
+                onClick: (event, elements) => {
+                    if (elements.length > 0) {
+                        const index = elements[0].index;
+                        const label = labels[index];
+                        showSliceDetails(label);
+                    }
+                },
                 animation: isExport ? false : true,
                 responsive: true,
                 maintainAspectRatio: false,
@@ -889,3 +899,87 @@ function triggerEasterEgg() {
         }, 250);
     }
 }
+
+// ===== POPUP DETTAGLI GRUPPO (DOUGHNUT CLICK) =====
+function showSliceDetails(label) {
+    const modal = document.getElementById('details-modal');
+    const modalTitle = document.getElementById('modal-title');
+    const modalTableHead = document.getElementById('modal-table-head');
+    const modalTableBody = document.getElementById('modal-table-body');
+    
+    // Filtra le righe del timesheet appartenenti al gruppo cliccato
+    const filteredRows = currentData.filter(row => {
+        let gruppo = '';
+        if ('Gruppo Timesheet' in row) gruppo = row['Gruppo Timesheet'];
+        else if ('Gruppo TimeSheet' in row) gruppo = row['Gruppo TimeSheet'];
+        else if ('Gruppo' in row) gruppo = row['Gruppo'];
+        return String(gruppo || '').trim() === String(label).trim();
+    });
+
+    modalTitle.textContent = `Dettagli Gruppo: ${label} (${filteredRows.length} righe)`;
+    modalTableBody.innerHTML = '';
+    modalTableHead.innerHTML = '';
+
+    // Verifica se c'è almeno un collaboratore non vuoto (escludiamo il collaboratore virtuale "Dipendente")
+    const hasUtente = filteredRows.some(row => {
+        let ut = row['Utente'] || row['Risorsa'] || row['Collaboratore'] || row['Nome'] || '';
+        return String(ut).trim() !== '' && String(ut).trim() !== 'Dipendente';
+    });
+
+    // Costruisci gli header dinamicamente
+    let headersHTML = `<th style="padding: 12px 10px; color: var(--text-secondary); font-weight: 600;">Data</th>`;
+    if (hasUtente) {
+        headersHTML += `<th style="padding: 12px 10px; color: var(--text-secondary); font-weight: 600;">Collaboratore</th>`;
+    }
+    headersHTML += `
+        <th style="padding: 12px 10px; color: var(--text-secondary); font-weight: 600;">Account</th>
+        <th style="padding: 12px 10px; color: var(--text-secondary); font-weight: 600; text-align: right;">Ore</th>
+        <th style="padding: 12px 10px; color: var(--text-secondary); font-weight: 600;">Descrizione</th>
+    `;
+    modalTableHead.innerHTML = headersHTML;
+    
+    filteredRows.forEach((row, idx) => {
+        try {
+            let dateVal = row['Data'] || row['Giorno'] || row['Data Evasione'] || '';
+            let utente = row['Utente'] || row['Risorsa'] || row['Collaboratore'] || row['Nome'] || '';
+            let account = row['Account'] || row['Cliente'] || row['Commessa'] || '';
+            let ore = row['Consuntivo Ore'] || row['Ore'] || '0';
+            let desc = row['Descrizione'] || row['Nota'] || '';
+            
+            const tr = document.createElement('tr');
+            let cellsHTML = `<td style="padding: 10px; border-bottom: 1px solid var(--border);">${dateVal}</td>`;
+            if (hasUtente) {
+                cellsHTML += `<td style="padding: 10px; border-bottom: 1px solid var(--border);">${utente}</td>`;
+            }
+            cellsHTML += `
+                <td style="padding: 10px; border-bottom: 1px solid var(--border);">${account}</td>
+                <td style="padding: 10px; border-bottom: 1px solid var(--border); text-align: right; font-weight: 600;">${ore}</td>
+                <td style="padding: 10px; border-bottom: 1px solid var(--border); font-size: 0.85rem; color: var(--text-secondary); max-width: 350px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${desc}">${desc}</td>
+            `;
+            tr.innerHTML = cellsHTML;
+            modalTableBody.appendChild(tr);
+        } catch (err) {
+            console.error('Error rendering row at index ' + idx, err, row);
+        }
+    });
+    
+    modal.classList.remove('hidden');
+}
+
+function closeModal() {
+    const modal = document.getElementById('details-modal');
+    modal.classList.add('hidden');
+}
+
+function handleOverlayClick(event) {
+    if (event.target.id === 'details-modal') {
+        closeModal();
+    }
+}
+
+// Chiusura con tasto ESC
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        closeModal();
+    }
+});

@@ -8,6 +8,7 @@ import requests
 import io
 import os
 from contextlib import asynccontextmanager
+from datetime import datetime, timedelta, date
 
 # Inizializza il database SQLite
 DB_NAME = "timesheet_rules.db"
@@ -142,6 +143,16 @@ def evaluate_rules(row, rules, all_rows):
             
     return errors
 
+def parse_date(date_str):
+    if not date_str:
+        return None
+    for fmt in ('%d/%m/%Y', '%Y-%m-%d', '%d-%m-%Y', '%Y/%m/%d', '%d/%m/%y', '%y-%m-%d', '%y/%m/%d'):
+        try:
+            return datetime.strptime(str(date_str).strip(), fmt).date()
+        except ValueError:
+            continue
+    return None
+
 @app.post("/api/upload")
 async def upload_file(file: UploadFile = File(...), ollama_ip: str = "127.0.0.1"):
     try:
@@ -226,6 +237,108 @@ async def upload_file(file: UploadFile = File(...), ollama_ip: str = "127.0.0.1"
             row_dict['_Errore_Logico'] = " | ".join(errors) if errors else ""
             row_dict['_Avviso_IA'] = ai_warning
             results.append(row_dict)
+
+        # Rilevamento giorni lavorativi mancanti
+        date_col = None
+        for col in ['Data', 'Giorno', 'Data Evasione']:
+            if col in df.columns:
+                date_col = col
+                break
+        if not date_col:
+            date_cols = [c for c in df.columns if 'data' in c.lower()]
+            if date_cols:
+                date_col = date_cols[0]
+
+        user_col = None
+        for col in ['Utente', 'Risorsa', 'Collaboratore', 'Nome']:
+            if col in df.columns:
+                user_col = col
+                break
+        if not user_col:
+            user_cols = [c for c in df.columns if any(x in c.lower() for x in ['utente', 'risorsa', 'collab', 'nome'])]
+            if user_cols:
+                user_col = user_cols[0]
+
+        if date_col and not user_col:
+            # Fallback per file monoutente privi di colonna Collaboratore
+            user_col = 'Collaboratore'
+            df[user_col] = 'Dipendente'
+            for r in results:
+                r[user_col] = 'Dipendente'
+
+        if date_col and user_col:
+            parsed_dates = {}
+            unique_users = set()
+            user_dates = {}
+            
+            for r in results:
+                d_str = str(r.get(date_col, '')).strip()
+                u_str = str(r.get(user_col, '')).strip()
+                if u_str:
+                    unique_users.add(u_str)
+                    if u_str not in user_dates:
+                        user_dates[u_str] = set()
+                
+                d_obj = parse_date(d_str)
+                if d_obj:
+                    parsed_dates[d_str] = d_obj
+                    if u_str:
+                        user_dates[u_str].add(d_obj)
+            
+            if parsed_dates and unique_users:
+                min_date = min(parsed_dates.values())
+                max_date = max(parsed_dates.values())
+                
+                # Genera tutti i giorni lavorativi nel range
+                all_working_days = []
+                curr = min_date
+                while curr <= max_date:
+                    if curr.weekday() < 5:  # Lun-Ven
+                        all_working_days.append(curr)
+                    curr += timedelta(days=1)
+                
+                # Indovina il formato dal primo elemento di parsed_dates
+                sample_format = "%d/%m/%Y"
+                if parsed_dates:
+                    first_k = list(parsed_dates.keys())[0]
+                    if "/" in first_k:
+                        parts = first_k.split("/")
+                        if len(parts[0]) == 4:
+                            sample_format = "%Y/%m/%d"
+                        else:
+                            sample_format = "%d/%m/%Y"
+                    elif "-" in first_k:
+                        parts = first_k.split("-")
+                        if len(parts[0]) == 4:
+                            sample_format = "%Y-%m-%d"
+                        else:
+                            sample_format = "%d-%m-%Y"
+                
+                virtual_rows = []
+                for user in unique_users:
+                    logged_days = user_dates.get(user, set())
+                    for w_day in all_working_days:
+                        if w_day not in logged_days:
+                            # Crea riga virtuale
+                            v_row = {col: "" for col in df.columns}
+                            date_str = w_day.strftime(sample_format)
+                            v_row[date_col] = date_str
+                            v_row[user_col] = user
+                            v_row['_Errore_Logico'] = "Mancano le ore per questo giorno lavorativo!"
+                            v_row['_Avviso_IA'] = ""
+                            virtual_rows.append(v_row)
+                
+                results.extend(virtual_rows)
+                
+                # Ordina cronologicamente
+                def get_sort_key(r):
+                    d_str = r.get(date_col, '')
+                    d_obj = parse_date(d_str)
+                    d_key = d_obj if d_obj else date.min
+                    u_key = r.get(user_col, '')
+                    return (d_key, u_key)
+                
+                results.sort(key=get_sort_key)
 
         return {"status": "success", "data": results}
     except Exception as e:
