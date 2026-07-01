@@ -15,6 +15,13 @@ Sviluppato per **Smeup** — Sistema basato su Google Gemma 4 (E2B) tramite Olla
 
 ---
 
+## 🚀 NOVITÀ Versione 2.3: Rilevamento Giorni Mancanti & Popup Interattivi
+- **Rilevamento Giorni Lavorativi Mancanti:** Il sistema rileva automaticamente se ci sono giorni feriali (lunedì-venerdì) privi di qualsiasi registrazione nel periodo caricato, iniettando una riga virtuale di errore rossa ordinata cronologicamente.
+- **Popup di Dettaglio Interattivi:** Cliccando sulle fette del grafico a torta si apre un popup animato (effetto glassmorphism) che mostra l'elenco delle righe collegate, con auto-ridimensionamento e rimozione automatica delle colonne vuote (es. nei file monoutente).
+- **KPI Cards & Context Switching:** Aggiunti indicatori per Ore Totali, Interventi Totali e **Context Switching Medio** (indice di frammentazione giornaliera del team, con esclusione di `IC-GENERALI` e colorazione dinamica).
+
+---
+
 ## 🚀 NOVITÀ Versione 2.2: Transizione a Gemma 4
 - **Modello IA di ultima generazione:** Aggiornato il modello locale a **Google Gemma 4 (E2B)** per migliori capacità di ragionamento logico, generazione di regole complesse e stabilità nell'interpretazione dei timesheet aziendali.
 - **Rimozione Vecchio Modello:** Disattivato e rimosso Gemma 2 per liberare spazio sulla VM.
