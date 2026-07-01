@@ -222,6 +222,12 @@ function resetUpload() {
     if (chartGruppo) { chartGruppo.destroy(); chartGruppo = null; }
     if (chartAccount) { chartAccount.destroy(); chartAccount = null; }
     
+    // Ripristina KPI Cards
+    document.getElementById('kpi-ore-totali').textContent = '0';
+    document.getElementById('kpi-interventi-totali').textContent = '0';
+    document.getElementById('kpi-context-switching').textContent = '0%';
+    document.getElementById('kpi-context-switching').style.color = 'var(--success)';
+
     // Ripristina lo stato del drop-zone
     document.getElementById('btn-select-file').classList.remove('hidden');
     document.getElementById('btn-new-file').classList.add('hidden');
@@ -417,14 +423,22 @@ function generateCharts(data, isExport = false) {
     const sumGruppo = {};
     const countAccount = {};
     let totalOreGruppo = 0;
+    
+    // Variabili per i KPI e il Context Switching
+    let totalHoursAll = 0;
+    const totalInterventions = data.length;
+    const dailyUserWork = {}; // Raggruppamento per "Utente|Data" per il CS
 
     data.forEach(row => {
-        // Cerca colonna Gruppo (Somma Ore)
+        // Cerca colonna Ore
         let ore = 0;
         if ('Consuntivo Ore' in row) ore = safeFloatJS(row['Consuntivo Ore']);
         else if ('Ore' in row) ore = safeFloatJS(row['Ore']);
         else ore = 1;
 
+        totalHoursAll += ore;
+
+        // Cerca colonna Gruppo
         let gruppo = 'Sconosciuto';
         if ('Gruppo Timesheet' in row) gruppo = row['Gruppo Timesheet'];
         else if ('Gruppo TimeSheet' in row) gruppo = row['Gruppo TimeSheet'];
@@ -438,16 +452,79 @@ function generateCharts(data, isExport = false) {
             }
         }
 
-        // Cerca colonna Account (Conteggio Occorrenze)
+        // Cerca colonna Account
         let account = 'Nessun Account';
         if ('Account' in row) account = row['Account'];
         else if ('Cliente' in row) account = row['Cliente'];
+        else if ('Commessa' in row) account = row['Commessa'];
         
         if (account !== undefined && account !== null) {
             account = String(account).trim();
             if (account !== '') countAccount[account] = (countAccount[account] || 0) + 1;
         }
+
+        // Estrai Utente e Data per calcolare il Context Switching
+        let utente = 'Sconosciuto';
+        if ('Utente' in row) utente = row['Utente'];
+        else if ('Risorsa' in row) utente = row['Risorsa'];
+        else if ('Collaboratore' in row) utente = row['Collaboratore'];
+        else if ('Nome' in row) utente = row['Nome'];
+        utente = String(utente || '').trim();
+
+        let dataVal = 'Sconosciuta';
+        if ('Data' in row) dataVal = row['Data'];
+        else if ('Giorno' in row) dataVal = row['Giorno'];
+        else if ('Data Evasione' in row) dataVal = row['Data Evasione'];
+        dataVal = String(dataVal || '').trim();
+
+        // Calcola il CS solo per righe diverse da "IC-GENERALI"
+        if (gruppo !== 'IC-GENERALI' && utente !== 'Sconosciuto' && dataVal !== 'Sconosciuta') {
+            const key = `${utente}|${dataVal}`;
+            if (!dailyUserWork[key]) {
+                dailyUserWork[key] = { total: 0, accounts: {} };
+            }
+            dailyUserWork[key].accounts[account] = (dailyUserWork[key].accounts[account] || 0) + ore;
+            dailyUserWork[key].total += ore;
+        }
     });
+
+    // Calcola il Context Switching Medio
+    let csSum = 0;
+    let csCount = 0;
+
+    for (const key in dailyUserWork) {
+        const dayData = dailyUserWork[key];
+        if (dayData.total > 0) {
+            let maxHoursOnSingleAccount = 0;
+            for (const acc in dayData.accounts) {
+                if (dayData.accounts[acc] > maxHoursOnSingleAccount) {
+                    maxHoursOnSingleAccount = dayData.accounts[acc];
+                }
+            }
+            // CS% = (1 - (ore_max_cliente / ore_totali_giorno))
+            const cs = 1 - (maxHoursOnSingleAccount / dayData.total);
+            csSum += cs;
+            csCount++;
+        }
+    }
+
+    const avgCS = csCount > 0 ? (csSum / csCount) * 100 : 0;
+
+    // Popola le KPI Cards nel DOM
+    document.getElementById('kpi-ore-totali').textContent = totalHoursAll.toFixed(1);
+    document.getElementById('kpi-interventi-totali').textContent = totalInterventions;
+
+    const kpiCS = document.getElementById('kpi-context-switching');
+    kpiCS.textContent = avgCS.toFixed(1) + '%';
+    
+    // Applica colore in base alle soglie (Verde <= 50%, Giallo <= 70%, Rosso > 70%)
+    if (avgCS <= 50) {
+        kpiCS.style.color = 'var(--success)';
+    } else if (avgCS <= 70) {
+        kpiCS.style.color = '#f59e0b'; // Amber/Yellow
+    } else {
+        kpiCS.style.color = '#ef4444'; // Red
+    }
 
     const isDarkMode = document.body.getAttribute('data-theme') === 'dark';
     const textColor = isDarkMode ? '#e2e8f0' : '#1e293b';

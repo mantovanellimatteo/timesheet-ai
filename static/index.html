@@ -88,6 +88,22 @@
                         </div>
                     </div>
                     
+                    <!-- Area KPI Summary -->
+                    <div id="kpi-container" class="kpi-grid" style="display: flex; gap: 20px; margin-bottom: 25px; flex-wrap: wrap; width: 100%;">
+                        <div class="kpi-card" style="flex: 1; min-width: 200px; background: var(--bg-card); padding: 20px; border-radius: 12px; border: 1px solid var(--border); text-align: center;">
+                            <span class="kpi-label" style="display: block; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 8px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Ore Totali</span>
+                            <span class="kpi-value" id="kpi-ore-totali" style="font-size: 2rem; font-weight: 700; color: var(--accent);">0</span>
+                        </div>
+                        <div class="kpi-card" style="flex: 1; min-width: 200px; background: var(--bg-card); padding: 20px; border-radius: 12px; border: 1px solid var(--border); text-align: center;">
+                            <span class="kpi-label" style="display: block; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 8px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Interventi Totali</span>
+                            <span class="kpi-value" id="kpi-interventi-totali" style="font-size: 2rem; font-weight: 700; color: var(--text);">0</span>
+                        </div>
+                        <div class="kpi-card" style="flex: 1; min-width: 200px; background: var(--bg-card); padding: 20px; border-radius: 12px; border: 1px solid var(--border); text-align: center;">
+                            <span class="kpi-label" style="display: block; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 8px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Context Switching Medio</span>
+                            <span class="kpi-value" id="kpi-context-switching" style="font-size: 2rem; font-weight: 700; color: var(--success);">0%</span>
+                        </div>
+                    </div>
+
                     <!-- Area Grafici -->
                     <div id="stats-container" style="display: flex; gap: 20px; margin-bottom: 25px; flex-wrap: wrap;">
                         <div class="chart-card" style="flex: 1; min-width: 300px; background: var(--bg-card); padding: 15px; border-radius: 12px; border: 1px solid var(--border);">
