@@ -156,6 +156,48 @@ Oppure usa il **Generatore IA** integrato: descrivi la regola in italiano (anche
 
 ---
 
+## 📊 Metrica del Context Switching (CS)
+
+Il **Context Switching Medio** è un indicatore sintetico introdotto nella dashboard (KPI Cards) per monitorare il **livello di frammentazione del lavoro** e la dispersione delle risorse nel team.
+
+### Concetto e Raggruppamento
+L'indice valuta quanto ciascun collaboratore è costretto a saltare tra commesse/clienti differenti durante la stessa giornata lavorativa.
+
+1. **Raggruppamento Giornaliero**: i dati vengono aggregati per coppia `Utente` + `Data`.
+2. **Esclusioni**:
+   - Vengono escluse dal calcolo le registrazioni del gruppo **`IC-GENERALI`** (attività interne aziendali che non costituiscono un cambio di contesto cliente).
+   - Vengono ignorate righe senza utente o data valida.
+
+### Formula di Calcolo
+
+Per ogni giornata lavorativa di ciascun collaboratore:
+- $\text{Ore}_{\text{totali}}$ = somma delle ore lavorate nel giorno (al netto di `IC-GENERALI`).
+- $\text{Ore}_{\max}$ = ore dedicate al cliente/commessa su cui l'utente ha speso più tempo nel giorno.
+
+Il **Context Switching giornaliero** è calcolato come:
+
+$$CS_{\text{giorno}} = 1 - \frac{\text{Ore}_{\max}}{\text{Ore}_{\text{totali}}}$$
+
+Il **Context Switching Medio** mostrato nella KPI Card è la media aritmetica di tutte le giornate analizzate:
+
+$$\text{CS Medio} = \frac{\sum CS_{\text{giorno}}}{N_{\text{giornate}}} \times 100\%$$
+
+### Esempi Pratici
+
+* **0% (Focus Totale)**: 8 ore lavorate sullo stesso cliente $\to 1 - \frac{8}{8} = 0\%$.
+* **25% (Lieve Frammentazione)**: 6 ore sul Cliente A e 2 ore sul Cliente B $\to 1 - \frac{6}{8} = 25\%$.
+* **75% (Forte Frammentazione)**: 2 ore ciascuno su 4 clienti diversi (totale 8 ore) $\to 1 - \frac{2}{8} = 75\%$.
+
+### Soglie di Attenzione (Colori KPI)
+
+| Soglia | Colore | Interpretazione |
+| :---: | :---: | :--- |
+| **$\le 50\%$** | 🟢 Verde | **Ottimale**: Lavoro ben focalizzato, tempo speso prevalentemente su un'attività principale. |
+| **$51\% - 70\%$** | 🟡 Ambra | **Attenzione**: Frammentazione moderata tra più commesse. |
+| **$> 70\%$** | 🔴 Rosso | **Critico**: Forte dispersione ed eccessivo cambio di contesto. |
+
+---
+
 ## Licenza
 
 Uso interno aziendale — Smeup SpA
