@@ -15,6 +15,17 @@ Sviluppato per **Smeup** — Sistema basato su Google Gemma 4 (E2B) tramite Olla
 
 ---
 
+## 🚀 NOVITÀ Versione 2.4: Monitoraggio Ore Non Fatturabili & Dettaglio Note
+- **Tracking Ore Non Fatturabili:** Calcolo automatico e monitoraggio delle ore che non generano fatturato diretto, raggruppate per le categorie critiche:
+  - `ICS Generali` (e varianti: `IC-GENERALI`, `IC Generali`)
+  - `CLI Attività Commerciali` (e varianti commerciali)
+  - `Formazione` (e corsi di formazione interna)
+- **KPI Card Interattiva & Soglie di Allerta:** Nuova card KPI con percentuale sul totale ore lavorate e colorazione semaforica automatica (verde se 0%, arancione/ambra fino al 15%, rossa oltre il 15%).
+- **Popup di Dettaglio con Note a Vista:** Cliccando sulla KPI card si apre un popup modale dedicato che elenca tutte le registrazioni non fatturabili con Data, Utente, Categoria (con badge colorati distinti), Account, Ore e la colonna completa di **Note / Descrizione**, con pulsante rapido per copiare il report negli appunti.
+- **Filtro Rapido in Tabella & Evidenziazione:** Checkbox *"Mostra solo non fatturabili"* e riga evidenziata con badge ambra nella tabella principale dei dati.
+
+---
+
 ## 🚀 NOVITÀ Versione 2.3: Rilevamento Giorni Mancanti & Popup Interattivi
 - **Rilevamento Giorni Lavorativi Mancanti:** Il sistema rileva automaticamente se ci sono giorni feriali (lunedì-venerdì) privi di qualsiasi registrazione nel periodo caricato, iniettando una riga virtuale di errore rossa ordinata cronologicamente.
 - **Popup di Dettaglio Interattivi:** Cliccando sulle fette del grafico a torta si apre un popup animato (effetto glassmorphism) che mostra l'elenco delle righe collegate, con auto-ridimensionamento e rimozione automatica delle colonne vuote (es. nei file monoutente).

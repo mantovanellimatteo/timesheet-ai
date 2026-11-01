@@ -79,10 +79,14 @@
                             <h3 style="display: inline-block; margin-right: 10px;">Esito Controllo</h3>
                             <span id="report-filename" style="color: var(--text-secondary); font-size: 0.9rem; font-weight: 600;"></span>
                         </div>
-                        <div style="display: flex; align-items: center; gap: 15px;">
+                        <div style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
                             <label class="filter-toggle">
                                 <input type="checkbox" id="filter-errors" checked onchange="toggleFilter()">
                                 Mostra solo righe con errori o avvisi
+                            </label>
+                            <label class="filter-toggle" title="Filtra solo le ore ICS Generali, Attività Commerciali e Formazione">
+                                <input type="checkbox" id="filter-non-billable" onchange="toggleFilter()">
+                                Mostra solo non fatturabili
                             </label>
                             <button class="btn primary" style="padding: 5px 15px; font-size: 0.9rem;" onclick="exportPDF()">Esporta PDF</button>
                         </div>
@@ -101,6 +105,13 @@
                         <div class="kpi-card" style="flex: 1; min-width: 200px; background: var(--bg-card); padding: 20px; border-radius: 12px; border: 1px solid var(--border); text-align: center;">
                             <span class="kpi-label" style="display: block; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 8px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Context Switching Medio</span>
                             <span class="kpi-value" id="kpi-context-switching" style="font-size: 2rem; font-weight: 700; color: var(--success);">0%</span>
+                        </div>
+                        <div class="kpi-card kpi-card-clickable" id="kpi-card-non-billable" onclick="showNonBillableModal()" title="Clicca per visualizzare l'elenco e le note delle ore non fatturabili" style="flex: 1; min-width: 200px; background: var(--bg-card); padding: 20px; border-radius: 12px; border: 1px solid var(--border); text-align: center; cursor: pointer; position: relative;">
+                            <span class="kpi-label" style="display: block; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 8px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">
+                                Ore Non Fatturabili ↗
+                            </span>
+                            <span class="kpi-value" id="kpi-ore-non-fatturabili" style="font-size: 2rem; font-weight: 700; color: #f59e0b;">0</span>
+                            <span id="kpi-perc-non-fatturabili" style="display: block; font-size: 0.8rem; color: var(--text-secondary); margin-top: 4px; font-weight: 600;">(0% del totale)</span>
                         </div>
                     </div>
 
@@ -178,6 +189,39 @@
                         <tr id="modal-table-head" style="border-bottom: 2px solid var(--border);"></tr>
                     </thead>
                     <tbody id="modal-table-body"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Ore Non Fatturabili -->
+    <div id="non-billable-modal" class="modal-overlay hidden" onclick="handleNonBillableOverlayClick(event)">
+        <div class="modal-card glass" style="max-width: 1050px; width: 95%;">
+            <div class="modal-header" style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid var(--border); padding-bottom: 15px; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
+                <div>
+                    <h3 id="nb-modal-title" style="margin: 0 0 5px 0; color: #f59e0b; font-family: 'Nunito', sans-serif; display: flex; align-items: center; gap: 8px;">
+                        <span>⏱️ Dettaglio Ore Non Fatturabili</span>
+                        <span id="nb-modal-badge" style="font-size: 0.8rem; padding: 2px 8px; border-radius: 12px; background: rgba(245, 158, 11, 0.2); color: #f59e0b; font-weight: 700;"></span>
+                    </h3>
+                    <div id="nb-modal-subtitle" style="font-size: 0.85rem; color: var(--text-secondary);">
+                        Voci monitorate: ICS Generali, CLI Attività Commerciali, Formazione
+                    </div>
+                </div>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <button class="btn secondary" style="padding: 5px 12px; font-size: 0.85rem;" onclick="copyNonBillableText()">📋 Copia Elenco con Note</button>
+                    <button class="close-btn" onclick="closeNonBillableModal()" style="background: none; border: none; color: var(--text-secondary); font-size: 1.8rem; cursor: pointer; transition: color 0.2s; line-height: 1;">&times;</button>
+                </div>
+            </div>
+            
+            <!-- Category breakdown pills -->
+            <div id="nb-category-pills" style="display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap;"></div>
+            
+            <div class="modal-body" style="overflow-x: auto; max-height: 520px; overflow-y: auto;">
+                <table style="border-collapse: collapse; text-align: left; font-size: 0.9rem; width: 100%; min-width: 750px;">
+                    <thead>
+                        <tr id="nb-modal-table-head" style="border-bottom: 2px solid var(--border);"></tr>
+                    </thead>
+                    <tbody id="nb-modal-table-body"></tbody>
                 </table>
             </div>
         </div>

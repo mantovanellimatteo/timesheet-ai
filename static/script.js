@@ -227,6 +227,18 @@ function resetUpload() {
     document.getElementById('kpi-interventi-totali').textContent = '0';
     document.getElementById('kpi-context-switching').textContent = '0%';
     document.getElementById('kpi-context-switching').style.color = 'var(--success)';
+    
+    const kpiNB = document.getElementById('kpi-ore-non-fatturabili');
+    if (kpiNB) {
+        kpiNB.textContent = '0';
+        kpiNB.style.color = '#f59e0b';
+    }
+    const kpiNBPerc = document.getElementById('kpi-perc-non-fatturabili');
+    if (kpiNBPerc) kpiNBPerc.textContent = '(0% del totale)';
+    const kpiNBCard = document.getElementById('kpi-card-non-billable');
+    if (kpiNBCard) kpiNBCard.style.borderColor = 'var(--border)';
+    const filterNB = document.getElementById('filter-non-billable');
+    if (filterNB) filterNB.checked = false;
 
     // Ripristina lo stato del drop-zone
     document.getElementById('btn-select-file').classList.remove('hidden');
@@ -326,6 +338,7 @@ function renderTable(data) {
     if (data.length === 0) return;
 
     const filterErrors = document.getElementById('filter-errors').checked;
+    const filterNonBillable = document.getElementById('filter-non-billable') ? document.getElementById('filter-non-billable').checked : false;
 
     // Filter out internal columns from headers
     const columns = Object.keys(data[0]).filter(c => c !== '_Errore_Logico' && c !== '_Avviso_IA');
@@ -341,9 +354,15 @@ function renderTable(data) {
     data.forEach(row => {
         const hasError = row['_Errore_Logico'] !== '';
         const hasWarning = row['_Avviso_IA'] !== '';
+        const nbCat = getNonBillableCategory(row);
+        const isNonBillable = nbCat !== null;
         
-        if (filterErrors && !hasError && !hasWarning) {
-            return; // Skip OK rows
+        if (filterNonBillable) {
+            // Mostra esclusivamente le righe non fatturabili
+            if (!isNonBillable) return;
+        } else if (filterErrors) {
+            // Mostra solo righe con errori o avvisi
+            if (!hasError && !hasWarning) return;
         }
         rowsShown++;
 
@@ -371,9 +390,17 @@ function renderTable(data) {
 
         // Render Actual Data Row
         const tr = document.createElement('tr');
+        if (isNonBillable) {
+            tr.classList.add('non-billable-highlight');
+        }
         columns.forEach(col => {
             const td = document.createElement('td');
-            td.textContent = row[col];
+            const colLower = col.toLowerCase();
+            if (isNonBillable && (colLower.includes('gruppo') || colLower === 'tipo')) {
+                td.innerHTML = `${escapeHtml(row[col])} <span class="badge-non-billable" title="Voce non fatturabile (${escapeHtml(nbCat)})">Non Fatturabile</span>`;
+            } else {
+                td.textContent = row[col];
+            }
             tr.appendChild(td);
         });
         body.appendChild(tr);
@@ -416,6 +443,57 @@ function safeFloatJS(val) {
     return isNaN(num) ? 0 : num;
 }
 
+// ===== HELPER ORE NON FATTURABILI =====
+// Riconosce se una riga appartiene alle categorie non fatturabili richieste:
+// 1. ICS Generali (es. IC-GENERALI, ICS Generali, IC Generali, ecc.)
+// 2. CLI Attività Commerciali (es. CLI ATTIVITA' COMMERCIALI, Attività Commerciali, ecc.)
+// 3. Formazione (es. Formazione, Corsi di Formazione, Formazione Interna, ecc.)
+function getNonBillableCategory(row) {
+    if (!row) return null;
+    
+    const candidates = [
+        row['Gruppo Timesheet'],
+        row['Gruppo TimeSheet'],
+        row['Gruppo'],
+        row['Tipo'],
+        row['Tipo Orario'],
+        row['Commessa'],
+        row['Account'],
+        row['Cliente'],
+        row['Sottogruppo']
+    ];
+    
+    for (let raw of candidates) {
+        if (!raw) continue;
+        const s = String(raw).trim().toUpperCase()
+            .normalize('NFD').replace(/[\u0300-\u036f]/g, ''); // Rimuove accenti (À -> A)
+            
+        // 1. ICS Generali / IC-GENERALI
+        if (s.includes('ICS GENERAL') || s.includes('IC-GENERAL') || s.includes('IC GENERAL') || s.includes('ICS-GENERAL')) {
+            return 'ICS Generali';
+        }
+        // 2. CLI Attività Commerciali
+        if (s.includes('ATTIVITA COMMERCIAL') || s.includes('ATTIVITA\' COMMERCIAL') || (s.includes('CLI') && s.includes('COMMERCIAL'))) {
+            return "CLI Attività Commerciali";
+        }
+        // 3. Formazione
+        if (s.includes('FORMAZIONE')) {
+            return 'Formazione';
+        }
+    }
+    return null;
+}
+
+function escapeHtml(str) {
+    if (str === null || str === undefined) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
 function generateCharts(data, isExport = false) {
     if (chartGruppo) chartGruppo.destroy();
     if (chartAccount) chartAccount.destroy();
@@ -429,6 +507,10 @@ function generateCharts(data, isExport = false) {
     const totalInterventions = data.length;
     const dailyUserWork = {}; // Raggruppamento per "Utente|Data" per il CS
 
+    // Tracking ore non fatturabili (ICS Generali, CLI Attività Commerciali, Formazione)
+    let totalNonBillableHours = 0;
+    let nonBillableCount = 0;
+
     data.forEach(row => {
         // Cerca colonna Ore
         let ore = 0;
@@ -437,6 +519,13 @@ function generateCharts(data, isExport = false) {
         else ore = 1;
 
         totalHoursAll += ore;
+
+        // Verifica categoria non fatturabile
+        const nbCat = getNonBillableCategory(row);
+        if (nbCat) {
+            totalNonBillableHours += ore;
+            nonBillableCount++;
+        }
 
         // Cerca colonna Gruppo
         let gruppo = 'Sconosciuto';
@@ -477,8 +566,9 @@ function generateCharts(data, isExport = false) {
         else if ('Data Evasione' in row) dataVal = row['Data Evasione'];
         dataVal = String(dataVal || '').trim();
 
-        // Calcola il CS solo per righe diverse da "IC-GENERALI"
-        if (gruppo !== 'IC-GENERALI' && utente !== 'Sconosciuto' && dataVal !== 'Sconosciuta') {
+        // Calcola il CS solo per righe diverse da attività generali interne
+        const isInternalGeneral = gruppo === 'IC-GENERALI' || gruppo === 'ICS Generali' || (nbCat === 'ICS Generali');
+        if (!isInternalGeneral && utente !== 'Sconosciuto' && dataVal !== 'Sconosciuta') {
             const key = `${utente}|${dataVal}`;
             if (!dailyUserWork[key]) {
                 dailyUserWork[key] = { total: 0, accounts: {} };
@@ -524,6 +614,28 @@ function generateCharts(data, isExport = false) {
         kpiCS.style.color = '#f59e0b'; // Amber/Yellow
     } else {
         kpiCS.style.color = '#ef4444'; // Red
+    }
+
+    // Popola KPI Ore Non Fatturabili
+    const kpiNB = document.getElementById('kpi-ore-non-fatturabili');
+    const kpiNBPerc = document.getElementById('kpi-perc-non-fatturabili');
+    const kpiNBCard = document.getElementById('kpi-card-non-billable');
+    if (kpiNB) {
+        kpiNB.textContent = totalNonBillableHours.toFixed(1);
+        const nbPerc = totalHoursAll > 0 ? (totalNonBillableHours / totalHoursAll) * 100 : 0;
+        if (kpiNBPerc) {
+            kpiNBPerc.textContent = `(${nbPerc.toFixed(1)}% del totale - ${nonBillableCount} int.)`;
+        }
+        if (totalNonBillableHours === 0) {
+            kpiNB.style.color = 'var(--success)';
+            if (kpiNBCard) kpiNBCard.style.borderColor = 'var(--border)';
+        } else if (nbPerc <= 15) {
+            kpiNB.style.color = '#f59e0b'; // Amber
+            if (kpiNBCard) kpiNBCard.style.borderColor = 'rgba(245, 158, 11, 0.4)';
+        } else {
+            kpiNB.style.color = '#ef4444'; // Red
+            if (kpiNBCard) kpiNBCard.style.borderColor = 'rgba(239, 68, 68, 0.4)';
+        }
     }
 
     const isDarkMode = document.body.getAttribute('data-theme') === 'dark';
@@ -968,7 +1080,7 @@ function showSliceDetails(label) {
 
 function closeModal() {
     const modal = document.getElementById('details-modal');
-    modal.classList.add('hidden');
+    if (modal) modal.classList.add('hidden');
 }
 
 function handleOverlayClick(event) {
@@ -977,9 +1089,210 @@ function handleOverlayClick(event) {
     }
 }
 
-// Chiusura con tasto ESC
+// ===== POPUP DETTAGLI ORE NON FATTURABILI =====
+function showNonBillableModal() {
+    if (!currentData || currentData.length === 0) return;
+    
+    const modal = document.getElementById('non-billable-modal');
+    if (!modal) return;
+    
+    const modalBadge = document.getElementById('nb-modal-badge');
+    const modalSubtitle = document.getElementById('nb-modal-subtitle');
+    const pillsContainer = document.getElementById('nb-category-pills');
+    const tableHead = document.getElementById('nb-modal-table-head');
+    const tableBody = document.getElementById('nb-modal-table-body');
+    
+    const nonBillableRows = [];
+    let sumHours = 0;
+    const catStats = {
+        'ICS Generali': { hours: 0, count: 0, class: 'ics' },
+        'CLI Attività Commerciali': { hours: 0, count: 0, class: 'commercial' },
+        'Formazione': { hours: 0, count: 0, class: 'training' }
+    };
+    
+    let totalAllHours = 0;
+    currentData.forEach(row => {
+        let ore = 0;
+        if ('Consuntivo Ore' in row) ore = safeFloatJS(row['Consuntivo Ore']);
+        else if ('Ore' in row) ore = safeFloatJS(row['Ore']);
+        else ore = 1;
+        totalAllHours += ore;
+        
+        const cat = getNonBillableCategory(row);
+        if (cat) {
+            nonBillableRows.push({ row, cat, ore });
+            sumHours += ore;
+            if (!catStats[cat]) catStats[cat] = { hours: 0, count: 0, class: 'commercial' };
+            catStats[cat].hours += ore;
+            catStats[cat].count++;
+        }
+    });
+
+    const percOfTotal = totalAllHours > 0 ? ((sumHours / totalAllHours) * 100).toFixed(1) : '0.0';
+    
+    if (modalBadge) {
+        modalBadge.textContent = `${sumHours.toFixed(1)} ore (${percOfTotal}% del totale)`;
+    }
+    if (modalSubtitle) {
+        modalSubtitle.innerHTML = `Trovati <strong>${nonBillableRows.length} interventi non fatturabili</strong> su ${currentData.length} totali (${totalAllHours.toFixed(1)} ore complessive analizzate).`;
+    }
+    
+    // Genera Pills Categorie
+    if (pillsContainer) {
+        pillsContainer.innerHTML = '';
+        for (const [catName, stats] of Object.entries(catStats)) {
+            const pill = document.createElement('div');
+            pill.className = `pill-nb ${stats.class}`;
+            pill.innerHTML = `<strong>${catName}:</strong> ${stats.hours.toFixed(1)} h <span style="opacity: 0.75; font-size: 0.75rem;">(${stats.count} int.)</span>`;
+            pillsContainer.appendChild(pill);
+        }
+    }
+    
+    // Verifica se c'è almeno un collaboratore valorizzato
+    const hasUtente = nonBillableRows.some(item => {
+        const ut = item.row['Utente'] || item.row['Risorsa'] || item.row['Collaboratore'] || item.row['Nome'] || '';
+        return String(ut).trim() !== '' && String(ut).trim() !== 'Dipendente';
+    });
+    
+    // Intestazioni tabella
+    let thHTML = `<th style="padding: 12px 10px; color: var(--text-secondary); font-weight: 600; width: 100px;">Data</th>`;
+    if (hasUtente) {
+        thHTML += `<th style="padding: 12px 10px; color: var(--text-secondary); font-weight: 600; width: 130px;">Collaboratore</th>`;
+    }
+    thHTML += `
+        <th style="padding: 12px 10px; color: var(--text-secondary); font-weight: 600; width: 150px;">Categoria</th>
+        <th style="padding: 12px 10px; color: var(--text-secondary); font-weight: 600; width: 150px;">Account / Commessa</th>
+        <th style="padding: 12px 10px; color: var(--text-secondary); font-weight: 600; text-align: right; width: 80px;">Ore</th>
+        <th style="padding: 12px 10px; color: var(--text-secondary); font-weight: 600;">Note / Descrizione</th>
+    `;
+    if (tableHead) tableHead.innerHTML = thHTML;
+    if (tableBody) tableBody.innerHTML = '';
+    
+    if (nonBillableRows.length === 0) {
+        const tr = document.createElement('tr');
+        const td = document.createElement('td');
+        td.colSpan = hasUtente ? 6 : 5;
+        td.style.textAlign = 'center';
+        td.style.padding = '35px';
+        td.style.color = 'var(--success)';
+        td.innerHTML = '🎉 <strong>Ottimo risultato!</strong> Nessuna ora non fatturabile rilevata tra le categorie monitorate.';
+        tr.appendChild(td);
+        if (tableBody) tableBody.appendChild(tr);
+    } else {
+        nonBillableRows.forEach(item => {
+            const r = item.row;
+            const dateVal = r['Data'] || r['Giorno'] || r['Data Evasione'] || '-';
+            const utente = r['Utente'] || r['Risorsa'] || r['Collaboratore'] || r['Nome'] || '-';
+            const account = r['Account'] || r['Cliente'] || r['Commessa'] || '-';
+            const oreVal = item.ore.toFixed(2);
+            
+            // Note e Descrizione (verifica tutti i possibili campi usati nei gestionali)
+            const desc = (r['Descrizione'] || '').trim();
+            const note = (r['Note'] || r['Nota'] || r['Dettaglio'] || r['Attività'] || r['Oggetto'] || '').trim();
+            
+            let notesHTML = '';
+            if (note && desc && note.toLowerCase() !== desc.toLowerCase()) {
+                notesHTML = `<div style="font-weight: 600; color: var(--text);">${escapeHtml(desc)}</div>
+                             <div style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 3px; font-style: italic;">📝 Note: ${escapeHtml(note)}</div>`;
+            } else {
+                const mainText = note || desc || '<span style="color: var(--text-secondary); font-style: italic;">Nessuna nota presente</span>';
+                notesHTML = `<div style="color: var(--text); line-height: 1.4;">${mainText === '-' ? mainText : (note || desc ? escapeHtml(mainText) : mainText)}</div>`;
+            }
+            
+            let catBadgeClass = 'commercial';
+            if (item.cat === 'ICS Generali') catBadgeClass = 'ics';
+            else if (item.cat === 'Formazione') catBadgeClass = 'training';
+            
+            const tr = document.createElement('tr');
+            let trHTML = `<td style="padding: 10px; border-bottom: 1px solid var(--border); white-space: nowrap; font-size: 0.85rem;">${escapeHtml(dateVal)}</td>`;
+            if (hasUtente) {
+                trHTML += `<td style="padding: 10px; border-bottom: 1px solid var(--border); font-weight: 500;">${escapeHtml(utente)}</td>`;
+            }
+            trHTML += `
+                <td style="padding: 10px; border-bottom: 1px solid var(--border);">
+                    <span class="pill-nb ${catBadgeClass}" style="padding: 2px 8px; font-size: 0.75rem;">${escapeHtml(item.cat)}</span>
+                </td>
+                <td style="padding: 10px; border-bottom: 1px solid var(--border); font-size: 0.85rem;">${escapeHtml(account)}</td>
+                <td style="padding: 10px; border-bottom: 1px solid var(--border); text-align: right; font-weight: 700; color: #f59e0b;">${oreVal}</td>
+                <td style="padding: 10px; border-bottom: 1px solid var(--border); max-width: 450px; word-break: break-word;">${notesHTML}</td>
+            `;
+            tr.innerHTML = trHTML;
+            if (tableBody) tableBody.appendChild(tr);
+        });
+    }
+    
+    modal.classList.remove('hidden');
+}
+
+function closeNonBillableModal() {
+    const modal = document.getElementById('non-billable-modal');
+    if (modal) modal.classList.add('hidden');
+}
+
+function handleNonBillableOverlayClick(event) {
+    if (event.target.id === 'non-billable-modal') {
+        closeNonBillableModal();
+    }
+}
+
+function copyNonBillableText() {
+    if (!currentData || currentData.length === 0) return;
+    
+    const nonBillableRows = [];
+    let sumHours = 0;
+    currentData.forEach(row => {
+        const cat = getNonBillableCategory(row);
+        if (cat) {
+            let ore = 0;
+            if ('Consuntivo Ore' in row) ore = safeFloatJS(row['Consuntivo Ore']);
+            else if ('Ore' in row) ore = safeFloatJS(row['Ore']);
+            else ore = 1;
+            nonBillableRows.push({ row, cat, ore });
+            sumHours += ore;
+        }
+    });
+    
+    if (nonBillableRows.length === 0) {
+        alert('Nessuna riga non fatturabile da copiare.');
+        return;
+    }
+    
+    let text = `=== RIEPILOGO ORE NON FATTURABILI ===\n`;
+    text += `Totale Ore Non Fatturabili: ${sumHours.toFixed(1)} ore (${nonBillableRows.length} registrazioni)\n\n`;
+    
+    nonBillableRows.forEach((item, idx) => {
+        const r = item.row;
+        const dateVal = r['Data'] || r['Giorno'] || r['Data Evasione'] || '-';
+        const utente = r['Utente'] || r['Risorsa'] || r['Collaboratore'] || r['Nome'] || '';
+        const account = r['Account'] || r['Cliente'] || r['Commessa'] || '-';
+        const desc = (r['Descrizione'] || '').trim();
+        const note = (r['Note'] || r['Nota'] || r['Dettaglio'] || r['Attività'] || r['Oggetto'] || '').trim();
+        
+        text += `${idx + 1}. [${dateVal}] ${utente ? utente + ' | ' : ''}${item.cat} (${account}) - ${item.ore.toFixed(2)} ore\n`;
+        if (note && desc && note.toLowerCase() !== desc.toLowerCase()) {
+            text += `   Descrizione: ${desc}\n`;
+            text += `   Note: ${note}\n`;
+        } else {
+            text += `   Note/Desc: ${note || desc || 'Nessuna nota'}\n`;
+        }
+        text += `\n`;
+    });
+    
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(() => {
+            alert('Elenco delle ore non fatturabili e relative note copiato negli appunti!');
+        }).catch(() => {
+            window.prompt('Copia il testo:', text);
+        });
+    } else {
+        window.prompt('Copia il testo:', text);
+    }
+}
+
+// Chiusura con tasto ESC per tutti i modal
 document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
         closeModal();
+        closeNonBillableModal();
     }
 });
