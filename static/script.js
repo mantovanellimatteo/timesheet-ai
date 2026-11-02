@@ -278,7 +278,18 @@ function startAnalysis() {
     const apiCall = fetch('/api/upload', {
         method: 'POST',
         body: formData
-    }).then(r => r.json());
+    }).then(async r => {
+        if (!r.ok) {
+            const errText = await r.text();
+            try {
+                const errJson = JSON.parse(errText);
+                throw new Error(errJson.detail || 'Errore durante l\'elaborazione');
+            } catch(e) {
+                throw new Error(errText || `Errore HTTP ${r.status}`);
+            }
+        }
+        return r.json();
+    });
 
     Promise.all([apiCall, minDelay])
     .then(([data]) => {
@@ -296,13 +307,13 @@ function startAnalysis() {
             document.getElementById('drop-zone-text').textContent = "Report generato. Chiudilo per caricarne uno nuovo.";
             
         } else {
-            alert('Errore: ' + data.detail);
+            alert('Errore: ' + (data.detail || 'Operazione fallita'));
             resetUpload();
         }
     })
     .catch(error => {
         hideMagicOverlay();
-        alert('Si è verificato un errore durante l\'elaborazione del file.');
+        alert('Si è verificato un errore: ' + (error.message || error));
         console.error(error);
         resetUpload();
     });

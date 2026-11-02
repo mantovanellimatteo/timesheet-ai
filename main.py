@@ -208,14 +208,15 @@ async def upload_file(file: UploadFile = File(...), ollama_ip: str = "127.0.0.1"
                 val = str(row[date_col]).strip()
                 if val.startswith(('Responsabile Attività -', 'Data Evasione -', 'Responsabile -', 'Data -')):
                     return True
-                ore_val = str(row.get('Consuntivo Ore', row.get('Ore', ''))).strip()
-                commessa_val = str(row.get('Commessa', '')).strip()
-                ts_val = str(row.get('Numero TimeSheet', row.get('Numero Timesheet', ''))).strip()
-                # Se mancano contemporaneamente Ore, Commessa e Numero TimeSheet, non è una registrazione valida
-                if not ore_val and not commessa_val and not ts_val:
+                # Considera separatore solo se quasi tutti i campi della riga sono vuoti
+                non_empty = [str(v).strip() for v in row.values if str(v).strip()]
+                if len(non_empty) <= 1:
                     return True
                 return False
             df = df[~df.apply(is_separator_row, axis=1)].reset_index(drop=True)
+
+        if len(df) == 0:
+            raise HTTPException(status_code=400, detail="Nessun dato valido trovato nel file caricato.")
 
         # Gestione doppia colonna Account (es. Account codice e Account.1 ragione sociale)
         if 'Account.1' in df.columns:
@@ -241,38 +242,69 @@ async def upload_file(file: UploadFile = File(...), ollama_ip: str = "127.0.0.1"
         # Prepariamo l'intero set di righe per il cross-row validation
         all_rows_for_eval = df.to_dict('records')
         
+        vague_terms = {
+            'varie', 'test', 'supporto', 'assistenza', 'meeting', 'call', 'chiamata',
+            'allineamento', 'task', 'cose varie', 'sviluppo', 'attività', 'attivita',
+            'help', 'help desk', 'helpdesk', 'ticket', 'chiusura ticket', 'lavori vari'
+        }
+
+        # Prima passata: Regole matematiche e Analisi Euristica Immediata delle descrizioni
+        ambiguous_candidates = {}  # desc_str -> [list of indices in results]
         for index, row in df.iterrows():
             row_dict = row.to_dict()
             
             # Controllo Matematico (Cross-Row supportato)
             errors = evaluate_rules(row_dict, rules, all_rows_for_eval)
-            
-            ai_warning = ""
-            if len(errors) == 0:
-                # Eseguiamo il controllo IA se la descrizione esiste
-                descrizione = row_dict.get("Descrizione", "")
-                commessa = row_dict.get("Commessa", "")
-                
-                if descrizione:
-                    prompt = f"""Analizza questo inserimento di timesheet (Commessa: {commessa}). Descrizione: "{descrizione}". 
-È professionale e non vaga? Rispondi SOLO 'OK' se va bene, altrimenti scrivi un avviso di max 10 parole."""
-                    try:
-                        res = requests.post(ollama_url, json={
-                            "model": "gemma4:e2b",
-                            "prompt": prompt,
-                            "stream": False,
-                            "options": {"temperature": 0.1}
-                        }, timeout=60)
-                        if res.status_code == 200:
-                            ai_resp = res.json().get("response", "").strip()
-                            if ai_resp.upper() != "OK" and not ai_resp.upper().startswith("OK."):
-                                ai_warning = ai_resp
-                    except Exception as e:
-                        ai_warning = f"Errore connessione IA"
-
             row_dict['_Errore_Logico'] = " | ".join(errors) if errors else ""
-            row_dict['_Avviso_IA'] = ai_warning
+            row_dict['_Avviso_IA'] = ""
+            
+            if len(errors) == 0:
+                descrizione = str(row_dict.get("Descrizione", "")).strip()
+                if descrizione:
+                    d_lower = descrizione.lower()
+                    if len(descrizione) < 4:
+                        row_dict['_Avviso_IA'] = "Descrizione troppo sintetica"
+                    elif d_lower in vague_terms:
+                        row_dict['_Avviso_IA'] = f"Descrizione generica ('{descrizione}'): specificare il dettaglio"
+                    elif len(descrizione) <= 35:
+                        # Candidata per verifica mirata batch con IA
+                        if descrizione not in ambiguous_candidates:
+                            ambiguous_candidates[descrizione] = []
+                        ambiguous_candidates[descrizione].append(len(results))
+
             results.append(row_dict)
+
+        # Seconda passata: Singola chiamata batch AI (max 5 descrizioni uniche con timeout rapido)
+        # Sostituisce il vecchio loop sequenziale riga-per-riga che bloccava l'app per decine di minuti
+        if ambiguous_candidates:
+            unique_to_check = list(ambiguous_candidates.keys())[:5]
+            prompt_items = "\n".join([f"{i+1}: {d}" for i, d in enumerate(unique_to_check)])
+            batch_prompt = f"""Valuta queste descrizioni di timesheet. Per ciascuna rispondi "OK" se descrive adeguatamente un'attività professionale, oppure un avviso di max 5 parole se troppo vaga o priva di contesto:
+{prompt_items}
+
+Rispondi ESCLUSIVAMENTE in formato JSON con chiavi numeriche:
+{{"1": "...", "2": "..."}}"""
+
+            try:
+                res = requests.post(ollama_url, json={
+                    "model": "gemma4:e2b",
+                    "prompt": batch_prompt,
+                    "stream": False,
+                    "format": "json",
+                    "options": {"temperature": 0.1, "num_predict": 100}
+                }, timeout=8)
+                if res.status_code == 200:
+                    import json
+                    raw_resp = res.json().get("response", "").strip()
+                    parsed_eval = json.loads(raw_resp)
+                    for i, d in enumerate(unique_to_check):
+                        val = str(parsed_eval.get(str(i+1), "")).strip()
+                        if val and val.upper() != "OK" and not val.upper().startswith("OK."):
+                            for r_idx in ambiguous_candidates[d]:
+                                results[r_idx]['_Avviso_IA'] = val
+            except Exception:
+                # Se Ollama non è raggiungibile o va in timeout, l'upload prosegue istantaneamente senza bloccarsi
+                pass
 
         # Rilevamento giorni lavorativi mancanti
         date_col = None
@@ -325,46 +357,49 @@ async def upload_file(file: UploadFile = File(...), ollama_ip: str = "127.0.0.1"
                 min_date = min(parsed_dates.values())
                 max_date = max(parsed_dates.values())
                 
-                # Genera tutti i giorni lavorativi nel range
-                all_working_days = []
-                curr = min_date
-                while curr <= max_date:
-                    if curr.weekday() < 5:  # Lun-Ven
-                        all_working_days.append(curr)
-                    curr += timedelta(days=1)
-                
-                # Indovina il formato dal primo elemento di parsed_dates
-                sample_format = "%d/%m/%Y"
-                if parsed_dates:
-                    first_k = list(parsed_dates.keys())[0]
-                    if "/" in first_k:
-                        parts = first_k.split("/")
-                        if len(parts[0]) == 4:
-                            sample_format = "%Y/%m/%d"
-                        else:
-                            sample_format = "%d/%m/%Y"
-                    elif "-" in first_k:
-                        parts = first_k.split("-")
-                        if len(parts[0]) == 4:
-                            sample_format = "%Y-%m-%d"
-                        else:
-                            sample_format = "%d-%m-%Y"
-                
-                virtual_rows = []
-                for user in unique_users:
-                    logged_days = user_dates.get(user, set())
-                    for w_day in all_working_days:
-                        if w_day not in logged_days:
-                            # Crea riga virtuale
-                            v_row = {col: "" for col in df.columns}
-                            date_str = w_day.strftime(sample_format)
-                            v_row[date_col] = date_str
-                            v_row[user_col] = user
-                            v_row['_Errore_Logico'] = "Mancano le ore per questo giorno lavorativo!"
-                            v_row['_Avviso_IA'] = ""
-                            virtual_rows.append(v_row)
-                
-                results.extend(virtual_rows)
+                # Protezione: calcola giorni mancanti solo per intervalli ragionevoli (<= 90 giorni)
+                # per evitare loop infiniti o saturazione memoria con anni incongruenti
+                if 0 <= (max_date - min_date).days <= 90:
+                    # Genera tutti i giorni lavorativi nel range
+                    all_working_days = []
+                    curr = min_date
+                    while curr <= max_date:
+                        if curr.weekday() < 5:  # Lun-Ven
+                            all_working_days.append(curr)
+                        curr += timedelta(days=1)
+                    
+                    # Indovina il formato dal primo elemento di parsed_dates
+                    sample_format = "%d/%m/%Y"
+                    if parsed_dates:
+                        first_k = list(parsed_dates.keys())[0]
+                        if "/" in first_k:
+                            parts = first_k.split("/")
+                            if len(parts[0]) == 4:
+                                sample_format = "%Y/%m/%d"
+                            else:
+                                sample_format = "%d/%m/%Y"
+                        elif "-" in first_k:
+                            parts = first_k.split("-")
+                            if len(parts[0]) == 4:
+                                sample_format = "%Y-%m-%d"
+                            else:
+                                sample_format = "%d-%m-%Y"
+                    
+                    virtual_rows = []
+                    for user in unique_users:
+                        logged_days = user_dates.get(user, set())
+                        for w_day in all_working_days:
+                            if w_day not in logged_days:
+                                # Crea riga virtuale
+                                v_row = {col: "" for col in df.columns}
+                                date_str = w_day.strftime(sample_format)
+                                v_row[date_col] = date_str
+                                v_row[user_col] = user
+                                v_row['_Errore_Logico'] = "Mancano le ore per questo giorno lavorativo!"
+                                v_row['_Avviso_IA'] = ""
+                                virtual_rows.append(v_row)
+                    
+                    results.extend(virtual_rows)
                 
                 # Ordina cronologicamente
                 def get_sort_key(r):
