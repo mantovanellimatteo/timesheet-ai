@@ -1,6 +1,9 @@
 let currentData = [];
 let currentRules = [];
 let editingId = null;
+let chartTeam = null;
+let selectedTeamMember = 'ALL';
+let teamMembersList = [];
 
 // --- INITIALIZATION ---
 document.addEventListener('DOMContentLoaded', () => {
@@ -221,7 +224,17 @@ function resetUpload() {
     // Distruggi grafici
     if (chartGruppo) { chartGruppo.destroy(); chartGruppo = null; }
     if (chartAccount) { chartAccount.destroy(); chartAccount = null; }
+    if (chartTeam) { chartTeam.destroy(); chartTeam = null; }
     
+    selectedTeamMember = 'ALL';
+    teamMembersList = [];
+    const teamContainer = document.getElementById('team-selector-container');
+    if (teamContainer) teamContainer.classList.add('hidden');
+    const teamCard = document.getElementById('chart-team-card');
+    if (teamCard) teamCard.classList.add('hidden');
+    const nbUserFilter = document.getElementById('nb-modal-user-filter');
+    if (nbUserFilter) nbUserFilter.style.display = 'none';
+
     // Ripristina KPI Cards
     document.getElementById('kpi-ore-totali').textContent = '0';
     document.getElementById('kpi-interventi-totali').textContent = '0';
@@ -272,8 +285,9 @@ function startAnalysis() {
         hideMagicOverlay();
         if (data.status === 'success') {
             currentData = data.data;
-            renderTable(currentData);
-            generateCharts(currentData);
+            selectedTeamMember = 'ALL';
+            setupTeamView(currentData);
+            updateDashboardView();
             document.getElementById('drop-zone').classList.remove('hidden');
             
             // Cambia l'UI del drop-zone per invitare a un nuovo report
@@ -327,6 +341,128 @@ function hideMagicOverlay() {
     magicInterval = null;
     document.getElementById('magic-overlay').classList.add('hidden');
     document.getElementById('magic-stars').innerHTML = '';
+}
+
+// --- TEAM MANAGEMENT ---
+function getUserOfRow(row) {
+    if (!row) return '';
+    const candidates = [
+        row['Responsabile Attività'],
+        row['Responsabile Attivita'],
+        row['Responsabile'],
+        row['Tecnico'],
+        row['Collaboratore'],
+        row['Risorsa'],
+        row['Utente'],
+        row['Nome']
+    ];
+    for (const c of candidates) {
+        if (c !== undefined && c !== null) {
+            const s = String(c).trim();
+            if (s !== '' && s !== 'Dipendente') return s;
+        }
+    }
+    return '';
+}
+
+function setupTeamView(data) {
+    const userHours = {};
+    data.forEach(row => {
+        const u = getUserOfRow(row);
+        if (u) {
+            let ore = 0;
+            if ('Consuntivo Ore' in row) ore = safeFloatJS(row['Consuntivo Ore']);
+            else if ('Ore' in row) ore = safeFloatJS(row['Ore']);
+            else ore = 1;
+            userHours[u] = (userHours[u] || 0) + ore;
+        }
+    });
+
+    teamMembersList = Object.keys(userHours).sort();
+    const container = document.getElementById('team-selector-container');
+    const select = document.getElementById('team-user-select');
+    const badge = document.getElementById('team-stats-badge');
+    const nbUserFilter = document.getElementById('nb-modal-user-filter');
+
+    if (teamMembersList.length > 1) {
+        if (container) container.classList.remove('hidden');
+        if (badge) badge.textContent = `${teamMembersList.length} tecnici rilevati`;
+
+        if (select) {
+            select.innerHTML = '';
+            const optAll = document.createElement('option');
+            optAll.value = 'ALL';
+            optAll.textContent = `👥 Tutto il Team (Aggregato - ${teamMembersList.length} tecnici)`;
+            select.appendChild(optAll);
+
+            teamMembersList.forEach(m => {
+                const opt = document.createElement('option');
+                opt.value = m;
+                opt.textContent = `👤 ${m} (${userHours[m].toFixed(1)}h)`;
+                select.appendChild(opt);
+            });
+            select.value = selectedTeamMember;
+        }
+
+        if (nbUserFilter) {
+            nbUserFilter.style.display = 'inline-block';
+            nbUserFilter.innerHTML = '';
+            const optAll = document.createElement('option');
+            optAll.value = 'ALL';
+            optAll.textContent = `Tutto il Team (${teamMembersList.length} tecnici)`;
+            nbUserFilter.appendChild(optAll);
+
+            teamMembersList.forEach(m => {
+                const opt = document.createElement('option');
+                opt.value = m;
+                opt.textContent = `${m}`;
+                nbUserFilter.appendChild(opt);
+            });
+            nbUserFilter.value = selectedTeamMember;
+        }
+    } else {
+        if (container) container.classList.add('hidden');
+        if (nbUserFilter) nbUserFilter.style.display = 'none';
+    }
+}
+
+function onTeamUserChange(val) {
+    selectedTeamMember = val || 'ALL';
+    
+    const select = document.getElementById('team-user-select');
+    if (select && select.value !== selectedTeamMember) select.value = selectedTeamMember;
+
+    const nbUserFilter = document.getElementById('nb-modal-user-filter');
+    if (nbUserFilter && nbUserFilter.value !== selectedTeamMember) nbUserFilter.value = selectedTeamMember;
+
+    const summary = document.getElementById('team-selected-summary');
+    const resetBtn = document.getElementById('btn-reset-team-filter');
+
+    if (summary) {
+        if (selectedTeamMember === 'ALL') {
+            summary.innerHTML = `Visualizzazione: <strong>Tutto il Team</strong>`;
+        } else {
+            summary.innerHTML = `Visualizzazione: <strong>${escapeHtml(selectedTeamMember)}</strong>`;
+        }
+    }
+
+    if (resetBtn) {
+        resetBtn.style.display = (selectedTeamMember !== 'ALL') ? 'inline-block' : 'none';
+    }
+
+    updateDashboardView();
+}
+
+function getActiveData() {
+    if (!currentData || currentData.length === 0) return [];
+    if (!selectedTeamMember || selectedTeamMember === 'ALL') return currentData;
+    return currentData.filter(row => getUserOfRow(row) === selectedTeamMember);
+}
+
+function updateDashboardView() {
+    const activeData = getActiveData();
+    renderTable(activeData);
+    generateCharts(activeData);
 }
 
 function renderTable(data) {
@@ -396,10 +532,13 @@ function renderTable(data) {
         columns.forEach(col => {
             const td = document.createElement('td');
             const colLower = col.toLowerCase();
+            const val = row[col];
             if (isNonBillable && (colLower.includes('gruppo') || colLower === 'tipo')) {
-                td.innerHTML = `${escapeHtml(row[col])} <span class="badge-non-billable" title="Voce non fatturabile (${escapeHtml(nbCat)})">Non Fatturabile</span>`;
+                td.innerHTML = `${escapeHtml(val)} <span class="badge-non-billable" title="Voce non fatturabile (${escapeHtml(nbCat)})">Non Fatturabile</span>`;
+            } else if (colLower.includes('responsabile') || colLower === 'tecnico') {
+                td.innerHTML = `<span class="team-user-badge">👤 ${escapeHtml(val)}</span>`;
             } else {
-                td.textContent = row[col];
+                td.textContent = val;
             }
             tr.appendChild(td);
         });
@@ -421,7 +560,7 @@ function renderTable(data) {
 }
 
 function toggleFilter() {
-    renderTable(currentData);
+    renderTable(getActiveData());
 }
 
 // ===== CHART.JS DASHBOARD =====
@@ -553,12 +692,7 @@ function generateCharts(data, isExport = false) {
         }
 
         // Estrai Utente e Data per calcolare il Context Switching
-        let utente = 'Sconosciuto';
-        if ('Utente' in row) utente = row['Utente'];
-        else if ('Risorsa' in row) utente = row['Risorsa'];
-        else if ('Collaboratore' in row) utente = row['Collaboratore'];
-        else if ('Nome' in row) utente = row['Nome'];
-        utente = String(utente || '').trim();
+        let utente = getUserOfRow(row) || 'Sconosciuto';
 
         let dataVal = 'Sconosciuta';
         if ('Data' in row) dataVal = row['Data'];
@@ -741,6 +875,130 @@ function generateCharts(data, isExport = false) {
 
     chartGruppo = renderPie('chart-gruppo', sortedGruppo, totalOreGruppo);
     chartAccount = renderBar('chart-account', sortedAccount);
+
+    // Gestione Grafico Confronto Team
+    const teamCard = document.getElementById('chart-team-card');
+    if (chartTeam) {
+        chartTeam.destroy();
+        chartTeam = null;
+    }
+
+    if (teamMembersList.length > 1 && selectedTeamMember === 'ALL' && teamCard) {
+        teamCard.classList.remove('hidden');
+        
+        // Calcola per ciascun membro del team ore fatturabili vs non fatturabili
+        const memberStats = {};
+        teamMembersList.forEach(m => {
+            memberStats[m] = { billable: 0, nonBillable: 0 };
+        });
+
+        currentData.forEach(r => {
+            const u = getUserOfRow(r);
+            if (u && memberStats[u]) {
+                let ore = 0;
+                if ('Consuntivo Ore' in r) ore = safeFloatJS(r['Consuntivo Ore']);
+                else if ('Ore' in r) ore = safeFloatJS(r['Ore']);
+                else ore = 1;
+
+                if (getNonBillableCategory(r)) {
+                    memberStats[u].nonBillable += ore;
+                } else {
+                    memberStats[u].billable += ore;
+                }
+            }
+        });
+
+        const sortedMembers = [...teamMembersList].sort((a, b) => {
+            const totA = memberStats[a].billable + memberStats[a].nonBillable;
+            const totB = memberStats[b].billable + memberStats[b].nonBillable;
+            return totB - totA;
+        });
+
+        const billableData = sortedMembers.map(m => memberStats[m].billable);
+        const nonBillableData = sortedMembers.map(m => memberStats[m].nonBillable);
+
+        const ctxTeam = document.getElementById('chart-team').getContext('2d');
+        chartTeam = new Chart(ctxTeam, {
+            type: 'bar',
+            data: {
+                labels: sortedMembers,
+                datasets: [
+                    {
+                        label: 'Ore Fatturabili',
+                        data: billableData,
+                        backgroundColor: '#10b981',
+                        borderRadius: 3
+                    },
+                    {
+                        label: 'Ore Non Fatturabili',
+                        data: nonBillableData,
+                        backgroundColor: '#f59e0b',
+                        borderRadius: 3
+                    }
+                ]
+            },
+            options: {
+                indexAxis: 'y',
+                animation: isExport ? false : true,
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: {
+                        stacked: true,
+                        beginAtZero: true,
+                        ticks: { color: textColor, font: { family: 'Nunito' } },
+                        grid: { color: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }
+                    },
+                    y: {
+                        stacked: true,
+                        ticks: { 
+                            color: textColor, 
+                            font: { family: 'Nunito', size: 11, weight: '600' }
+                        },
+                        grid: { display: false }
+                    }
+                },
+                onHover: (event, chartElement) => {
+                    event.native.target.style.cursor = chartElement.length ? 'pointer' : 'default';
+                },
+                onClick: (event, elements) => {
+                    if (elements.length > 0) {
+                        const index = elements[0].index;
+                        const clickedUser = sortedMembers[index];
+                        if (clickedUser) {
+                            onTeamUserChange(clickedUser);
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: { color: textColor, font: { family: 'Nunito', size: 11 } }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const val = context.parsed.x;
+                                return ` ${context.dataset.label}: ${val.toFixed(1)} ore`;
+                            },
+                            afterBody: function(context) {
+                                if (context && context[0]) {
+                                    const idx = context[0].dataIndex;
+                                    const m = sortedMembers[idx];
+                                    const tot = memberStats[m].billable + memberStats[m].nonBillable;
+                                    const nbPerc = tot > 0 ? ((memberStats[m].nonBillable / tot) * 100).toFixed(1) : 0;
+                                    return `Totale: ${tot.toFixed(1)}h | Non Fatturabile: ${nbPerc}%\n👉 Clicca per visualizzare questo tecnico`;
+                                }
+                                return '';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    } else {
+        if (teamCard) teamCard.classList.add('hidden');
+    }
 }
 
 // EXPORT PDF
@@ -770,8 +1028,9 @@ function exportPDF() {
     h4Elements.forEach(h4 => h4.style.color = '#475569');
 
     // 4. Rigenera i grafici (disabilitando le animazioni)
-    if (currentData && currentData.length > 0) {
-        generateCharts(currentData, true);
+    const activeDataForPDF = getActiveData();
+    if (activeDataForPDF && activeDataForPDF.length > 0) {
+        generateCharts(activeDataForPDF, true);
     }
     
     // Attendiamo 500ms per assicurarci che Chart.js abbia renderizzato il canvas e il DOM sia aggiornato
@@ -810,8 +1069,9 @@ function exportPDF() {
             document.body.style.transition = originalTransition;
             
             // Rigenera i grafici originali
-            if (currentData && currentData.length > 0) {
-                generateCharts(currentData, false);
+            const activeDataRestore = getActiveData();
+            if (activeDataRestore && activeDataRestore.length > 0) {
+                generateCharts(activeDataRestore, false);
             }
         });
     }, 500);
@@ -1019,8 +1279,9 @@ function showSliceDetails(label) {
     const modalTableHead = document.getElementById('modal-table-head');
     const modalTableBody = document.getElementById('modal-table-body');
     
-    // Filtra le righe del timesheet appartenenti al gruppo cliccato
-    const filteredRows = currentData.filter(row => {
+    // Filtra le righe del timesheet appartenenti al gruppo cliccato considerando il filtro utente attivo
+    const activeData = getActiveData();
+    const filteredRows = activeData.filter(row => {
         let gruppo = '';
         if ('Gruppo Timesheet' in row) gruppo = row['Gruppo Timesheet'];
         else if ('Gruppo TimeSheet' in row) gruppo = row['Gruppo TimeSheet'];
@@ -1028,20 +1289,21 @@ function showSliceDetails(label) {
         return String(gruppo || '').trim() === String(label).trim();
     });
 
-    modalTitle.textContent = `Dettagli Gruppo: ${label} (${filteredRows.length} righe)`;
+    const userLabel = (selectedTeamMember && selectedTeamMember !== 'ALL') ? ` [${selectedTeamMember}]` : '';
+    modalTitle.textContent = `Dettagli Gruppo: ${label}${userLabel} (${filteredRows.length} righe)`;
     modalTableBody.innerHTML = '';
     modalTableHead.innerHTML = '';
 
     // Verifica se c'è almeno un collaboratore non vuoto (escludiamo il collaboratore virtuale "Dipendente")
     const hasUtente = filteredRows.some(row => {
-        let ut = row['Utente'] || row['Risorsa'] || row['Collaboratore'] || row['Nome'] || '';
+        let ut = getUserOfRow(row);
         return String(ut).trim() !== '' && String(ut).trim() !== 'Dipendente';
     });
 
     // Costruisci gli header dinamicamente
     let headersHTML = `<th style="padding: 12px 10px; color: var(--text-secondary); font-weight: 600;">Data</th>`;
     if (hasUtente) {
-        headersHTML += `<th style="padding: 12px 10px; color: var(--text-secondary); font-weight: 600;">Collaboratore</th>`;
+        headersHTML += `<th style="padding: 12px 10px; color: var(--text-secondary); font-weight: 600;">Tecnico / Responsabile</th>`;
     }
     headersHTML += `
         <th style="padding: 12px 10px; color: var(--text-secondary); font-weight: 600;">Account</th>
@@ -1053,7 +1315,7 @@ function showSliceDetails(label) {
     filteredRows.forEach((row, idx) => {
         try {
             let dateVal = row['Data'] || row['Giorno'] || row['Data Evasione'] || '';
-            let utente = row['Utente'] || row['Risorsa'] || row['Collaboratore'] || row['Nome'] || '';
+            let utente = getUserOfRow(row);
             let account = row['Account'] || row['Cliente'] || row['Commessa'] || '';
             let ore = row['Consuntivo Ore'] || row['Ore'] || '0';
             let desc = row['Descrizione'] || row['Nota'] || '';
@@ -1061,7 +1323,7 @@ function showSliceDetails(label) {
             const tr = document.createElement('tr');
             let cellsHTML = `<td style="padding: 10px; border-bottom: 1px solid var(--border);">${dateVal}</td>`;
             if (hasUtente) {
-                cellsHTML += `<td style="padding: 10px; border-bottom: 1px solid var(--border);">${utente}</td>`;
+                cellsHTML += `<td style="padding: 10px; border-bottom: 1px solid var(--border); font-weight: 600;">${utente}</td>`;
             }
             cellsHTML += `
                 <td style="padding: 10px; border-bottom: 1px solid var(--border);">${account}</td>
@@ -1095,7 +1357,24 @@ function showNonBillableModal() {
     
     const modal = document.getElementById('non-billable-modal');
     if (!modal) return;
+
+    const nbUserFilter = document.getElementById('nb-modal-user-filter');
+    if (nbUserFilter && teamMembersList.length > 1) {
+        nbUserFilter.value = selectedTeamMember || 'ALL';
+    }
+
+    renderNonBillableModalTable();
+    modal.classList.remove('hidden');
+}
+
+function renderNonBillableModalTable() {
+    if (!currentData || currentData.length === 0) return;
     
+    const nbUserFilter = document.getElementById('nb-modal-user-filter');
+    const userFilter = (nbUserFilter && teamMembersList.length > 1) ? nbUserFilter.value : (selectedTeamMember || 'ALL');
+
+    const dataset = (userFilter === 'ALL') ? currentData : currentData.filter(r => getUserOfRow(r) === userFilter);
+
     const modalBadge = document.getElementById('nb-modal-badge');
     const modalSubtitle = document.getElementById('nb-modal-subtitle');
     const pillsContainer = document.getElementById('nb-category-pills');
@@ -1111,7 +1390,7 @@ function showNonBillableModal() {
     };
     
     let totalAllHours = 0;
-    currentData.forEach(row => {
+    dataset.forEach(row => {
         let ore = 0;
         if ('Consuntivo Ore' in row) ore = safeFloatJS(row['Consuntivo Ore']);
         else if ('Ore' in row) ore = safeFloatJS(row['Ore']);
@@ -1134,7 +1413,8 @@ function showNonBillableModal() {
         modalBadge.textContent = `${sumHours.toFixed(1)} ore (${percOfTotal}% del totale)`;
     }
     if (modalSubtitle) {
-        modalSubtitle.innerHTML = `Trovati <strong>${nonBillableRows.length} interventi non fatturabili</strong> su ${currentData.length} totali (${totalAllHours.toFixed(1)} ore complessive analizzate).`;
+        const userSuffix = (userFilter !== 'ALL') ? ` per <strong>${escapeHtml(userFilter)}</strong>` : '';
+        modalSubtitle.innerHTML = `Trovati <strong>${nonBillableRows.length} interventi non fatturabili</strong> su ${dataset.length} totali (${totalAllHours.toFixed(1)} ore complessive analizzate)${userSuffix}.`;
     }
     
     // Genera Pills Categorie
@@ -1148,16 +1428,16 @@ function showNonBillableModal() {
         }
     }
     
-    // Verifica se c'è almeno un collaboratore valorizzato
+    // Verifica se c'è almeno un collaboratore/responsabile valorizzato
     const hasUtente = nonBillableRows.some(item => {
-        const ut = item.row['Utente'] || item.row['Risorsa'] || item.row['Collaboratore'] || item.row['Nome'] || '';
-        return String(ut).trim() !== '' && String(ut).trim() !== 'Dipendente';
+        const ut = getUserOfRow(item.row);
+        return ut !== '' && ut !== 'Dipendente';
     });
     
     // Intestazioni tabella
     let thHTML = `<th style="padding: 12px 10px; color: var(--text-secondary); font-weight: 600; width: 100px;">Data</th>`;
     if (hasUtente) {
-        thHTML += `<th style="padding: 12px 10px; color: var(--text-secondary); font-weight: 600; width: 130px;">Collaboratore</th>`;
+        thHTML += `<th style="padding: 12px 10px; color: var(--text-secondary); font-weight: 600; width: 150px;">Tecnico / Resp.</th>`;
     }
     thHTML += `
         <th style="padding: 12px 10px; color: var(--text-secondary); font-weight: 600; width: 150px;">Categoria</th>
@@ -1182,7 +1462,7 @@ function showNonBillableModal() {
         nonBillableRows.forEach(item => {
             const r = item.row;
             const dateVal = r['Data'] || r['Giorno'] || r['Data Evasione'] || '-';
-            const utente = r['Utente'] || r['Risorsa'] || r['Collaboratore'] || r['Nome'] || '-';
+            const utente = getUserOfRow(r) || '-';
             const account = r['Account'] || r['Cliente'] || r['Commessa'] || '-';
             const oreVal = item.ore.toFixed(2);
             
@@ -1206,7 +1486,7 @@ function showNonBillableModal() {
             const tr = document.createElement('tr');
             let trHTML = `<td style="padding: 10px; border-bottom: 1px solid var(--border); white-space: nowrap; font-size: 0.85rem;">${escapeHtml(dateVal)}</td>`;
             if (hasUtente) {
-                trHTML += `<td style="padding: 10px; border-bottom: 1px solid var(--border); font-weight: 500;">${escapeHtml(utente)}</td>`;
+                trHTML += `<td style="padding: 10px; border-bottom: 1px solid var(--border); font-weight: 600;"><span class="team-user-badge">👤 ${escapeHtml(utente)}</span></td>`;
             }
             trHTML += `
                 <td style="padding: 10px; border-bottom: 1px solid var(--border);">
@@ -1220,8 +1500,6 @@ function showNonBillableModal() {
             if (tableBody) tableBody.appendChild(tr);
         });
     }
-    
-    modal.classList.remove('hidden');
 }
 
 function closeNonBillableModal() {
@@ -1238,9 +1516,13 @@ function handleNonBillableOverlayClick(event) {
 function copyNonBillableText() {
     if (!currentData || currentData.length === 0) return;
     
+    const nbUserFilter = document.getElementById('nb-modal-user-filter');
+    const userFilter = (nbUserFilter && teamMembersList.length > 1) ? nbUserFilter.value : (selectedTeamMember || 'ALL');
+    const dataset = (userFilter === 'ALL') ? currentData : currentData.filter(r => getUserOfRow(r) === userFilter);
+
     const nonBillableRows = [];
     let sumHours = 0;
-    currentData.forEach(row => {
+    dataset.forEach(row => {
         const cat = getNonBillableCategory(row);
         if (cat) {
             let ore = 0;
@@ -1258,12 +1540,15 @@ function copyNonBillableText() {
     }
     
     let text = `=== RIEPILOGO ORE NON FATTURABILI ===\n`;
+    if (userFilter !== 'ALL') {
+        text += `Tecnico: ${userFilter}\n`;
+    }
     text += `Totale Ore Non Fatturabili: ${sumHours.toFixed(1)} ore (${nonBillableRows.length} registrazioni)\n\n`;
     
     nonBillableRows.forEach((item, idx) => {
         const r = item.row;
         const dateVal = r['Data'] || r['Giorno'] || r['Data Evasione'] || '-';
-        const utente = r['Utente'] || r['Risorsa'] || r['Collaboratore'] || r['Nome'] || '';
+        const utente = getUserOfRow(r);
         const account = r['Account'] || r['Cliente'] || r['Commessa'] || '-';
         const desc = (r['Descrizione'] || '').trim();
         const note = (r['Note'] || r['Nota'] || r['Dettaglio'] || r['Attività'] || r['Oggetto'] || '').trim();

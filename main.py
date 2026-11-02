@@ -189,6 +189,42 @@ async def upload_file(file: UploadFile = File(...), ollama_ip: str = "127.0.0.1"
         df.columns = df.columns.str.replace(r'[\r\n]+', ' ', regex=True)
         # 2. Rimuoviamo spazi doppi accidentali e spazi all'inizio/fine
         df.columns = df.columns.str.replace(r'\s+', ' ', regex=True).str.strip()
+
+        # Identifica colonna Data
+        date_col = None
+        for col in ['Data', 'Giorno', 'Data Evasione']:
+            if col in df.columns:
+                date_col = col
+                break
+        if not date_col:
+            date_cols = [c for c in df.columns if 'data' in c.lower()]
+            if date_cols:
+                date_col = date_cols[0]
+
+        # Filtra righe di separatore / intestazione gruppo (es. "Responsabile Attività - ...", "Data Evasione - ...")
+        # Tipiche delle esportazioni Smeup / ERP dove una riga non contiene registrazioni effettive
+        if date_col:
+            def is_separator_row(row):
+                val = str(row[date_col]).strip()
+                if val.startswith(('Responsabile Attività -', 'Data Evasione -', 'Responsabile -', 'Data -')):
+                    return True
+                ore_val = str(row.get('Consuntivo Ore', row.get('Ore', ''))).strip()
+                commessa_val = str(row.get('Commessa', '')).strip()
+                ts_val = str(row.get('Numero TimeSheet', row.get('Numero Timesheet', ''))).strip()
+                # Se mancano contemporaneamente Ore, Commessa e Numero TimeSheet, non è una registrazione valida
+                if not ore_val and not commessa_val and not ts_val:
+                    return True
+                return False
+            df = df[~df.apply(is_separator_row, axis=1)].reset_index(drop=True)
+
+        # Gestione doppia colonna Account (es. Account codice e Account.1 ragione sociale)
+        if 'Account.1' in df.columns:
+            df['Account_Codice'] = df['Account']
+            df['Account'] = df.apply(lambda r: str(r['Account.1']).strip() if str(r['Account.1']).strip() else str(r['Account']).strip(), axis=1)
+
+        # Se esiste la colonna 'Nota' ma non 'Descrizione', copiamo in 'Descrizione' per garantire compatibilità con regole e IA
+        if 'Nota' in df.columns and 'Descrizione' not in df.columns:
+            df['Descrizione'] = df['Nota']
         
         # Carica regole
         conn = sqlite3.connect(DB_NAME)
@@ -250,12 +286,12 @@ async def upload_file(file: UploadFile = File(...), ollama_ip: str = "127.0.0.1"
                 date_col = date_cols[0]
 
         user_col = None
-        for col in ['Utente', 'Risorsa', 'Collaboratore', 'Nome']:
+        for col in ['Responsabile Attività', 'Tecnico', 'Collaboratore', 'Utente', 'Risorsa', 'Nome']:
             if col in df.columns:
                 user_col = col
                 break
         if not user_col:
-            user_cols = [c for c in df.columns if any(x in c.lower() for x in ['utente', 'risorsa', 'collab', 'nome'])]
+            user_cols = [c for c in df.columns if any(x in c.lower() for x in ['responsabile attivit', 'tecnico', 'collaboratore', 'utente', 'risorsa', 'nome'])]
             if user_cols:
                 user_col = user_cols[0]
 

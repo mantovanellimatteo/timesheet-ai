@@ -15,6 +15,16 @@ Sviluppato per **Smeup** — Sistema basato su Google Gemma 4 (E2B) tramite Olla
 
 ---
 
+## 🚀 NOVITÀ Versione 2.5: Modalità Team (Multi-Tecnico) & Confronto Ore
+- **Riconoscimento Automatico Team:** Supporto nativo per timesheet cumulativi contenenti più tecnici o responsabili attività (`Responsabile Attività`, `Tecnico`, ecc.).
+- **Filtro Avanzato Tecnico:** Barra selettore con visualizzazione aggregata (*Tutto il Team*) o filtrata per singolo membro del team con totale ore lavorate per ciascuno. Tutte le KPI card, grafici e righe si aggiornano istantaneamente al cambio di selezione.
+- **Grafico a Barre Stacked di Confronto Team:** Nuovo grafico orizzontale che mette a confronto visivo immediato le ore fatturabili vs ore non fatturabili di ogni componente del team. Cliccando su una barra si filtra immediatamente la dashboard per quel tecnico.
+- **Pulizia Intelligente Separatori ERP:** Filtro automatico delle righe di intestazione/banner (es. `Responsabile Attività - ...`, `Data Evasione - ...` ed esportazioni ERP senza ore/commesse), prevenendo falsi errori o distorsioni nei calcoli.
+- **Risoluzione Codici Account:** Mappatura automatica della ragione sociale del cliente quando l'ERP esporta colonne duplicate (es. `Account` codice numerico e `Account.1` ragione sociale).
+- **Filtro Membri nel Modal Non Fatturabile:** Selettore interno al popup per analizzare e copiare le note delle ore non fatturabili dell'intero team o di un singolo tecnico specifico.
+
+---
+
 ## 🚀 NOVITÀ Versione 2.4: Monitoraggio Ore Non Fatturabili & Dettaglio Note
 - **Tracking Ore Non Fatturabili:** Calcolo automatico e monitoraggio delle ore che non generano fatturato diretto, raggruppate per le categorie critiche:
   - `ICS Generali` (e varianti: `IC-GENERALI`, `IC Generali`)
