@@ -1359,11 +1359,13 @@ function showSliceDetails(label) {
     });
     
     modal.classList.remove('hidden');
+    document.body.classList.add('modal-open');
 }
 
 function closeModal() {
     const modal = document.getElementById('details-modal');
     if (modal) modal.classList.add('hidden');
+    document.body.classList.remove('modal-open');
 }
 
 function handleOverlayClick(event) {
@@ -1386,6 +1388,7 @@ function showNonBillableModal() {
 
     renderNonBillableModalTable();
     modal.classList.remove('hidden');
+    document.body.classList.add('modal-open');
 }
 
 function renderNonBillableModalTable() {
@@ -1526,6 +1529,7 @@ function renderNonBillableModalTable() {
 function closeNonBillableModal() {
     const modal = document.getElementById('non-billable-modal');
     if (modal) modal.classList.add('hidden');
+    document.body.classList.remove('modal-open');
 }
 
 function handleNonBillableOverlayClick(event) {
