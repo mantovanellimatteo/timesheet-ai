@@ -928,6 +928,13 @@ function generateCharts(data, isExport = false) {
         const billableData = sortedMembers.map(m => memberStats[m].billable);
         const nonBillableData = sortedMembers.map(m => memberStats[m].nonBillable);
 
+        // Adatta dinamicamente l'altezza del canvas al numero di membri del team per garantire che tutti i nomi siano visibili
+        const teamWrapper = document.getElementById('chart-team-wrapper');
+        if (teamWrapper) {
+            const calculatedHeight = Math.max(260, sortedMembers.length * 34 + 60);
+            teamWrapper.style.height = `${calculatedHeight}px`;
+        }
+
         const ctxTeam = document.getElementById('chart-team').getContext('2d');
         chartTeam = new Chart(ctxTeam, {
             type: 'bar',
@@ -938,13 +945,15 @@ function generateCharts(data, isExport = false) {
                         label: 'Ore Fatturabili',
                         data: billableData,
                         backgroundColor: '#10b981',
-                        borderRadius: 3
+                        borderRadius: 3,
+                        maxBarThickness: 22
                     },
                     {
                         label: 'Ore Non Fatturabili',
                         data: nonBillableData,
                         backgroundColor: '#f59e0b',
-                        borderRadius: 3
+                        borderRadius: 3,
+                        maxBarThickness: 22
                     }
                 ]
             },
@@ -963,6 +972,7 @@ function generateCharts(data, isExport = false) {
                     y: {
                         stacked: true,
                         ticks: { 
+                            autoSkip: false,
                             color: textColor, 
                             font: { family: 'Nunito', size: 11, weight: '600' }
                         },

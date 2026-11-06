@@ -136,12 +136,12 @@
 
                     <!-- Area Grafici -->
                     <div id="stats-container" style="display: flex; gap: 20px; margin-bottom: 25px; flex-wrap: wrap;">
-                        <div class="chart-card hidden" id="chart-team-card" style="flex: 2; min-width: 420px; background: var(--bg-card); padding: 15px; border-radius: 12px; border: 1px solid var(--border);">
-                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <div class="chart-card hidden" id="chart-team-card" style="flex: 1 1 100%; width: 100%; background: var(--bg-card); padding: 18px 20px; border-radius: 12px; border: 1px solid var(--border);">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
                                 <h4 style="margin: 0; color: var(--text-secondary); font-size: 0.95rem;">👥 Confronto Team: Ore Totali vs Non Fatturabili</h4>
-                                <span style="font-size: 0.75rem; color: var(--text-secondary);">Clicca su una barra per filtrare il tecnico</span>
+                                <span style="font-size: 0.8rem; color: var(--text-secondary);">💡 Clicca su una barra per filtrare la dashboard sul singolo tecnico</span>
                             </div>
-                            <div style="position: relative; height: 220px; width: 100%; display: flex; justify-content: center;">
+                            <div id="chart-team-wrapper" style="position: relative; height: 350px; width: 100%; display: flex; justify-content: center;">
                                 <canvas id="chart-team"></canvas>
                             </div>
                         </div>
