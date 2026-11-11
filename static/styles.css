@@ -105,7 +105,7 @@ body.modal-open {
     border-radius: 24px;
     padding: 32px 36px;
     width: 100%;
-    max-width: min(1560px, 96vw);
+    max-width: min(1680px, 97vw);
     box-shadow: 0 30px 80px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.18);
 }
 [data-theme="light"] .glass-container {
@@ -1061,13 +1061,16 @@ tr.non-billable-highlight td {
     overflow-x: auto;
     margin-bottom: 24px;
     box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+    scrollbar-width: thin;
 }
 
 .presence-matrix {
     width: 100%;
+    min-width: 980px;
     border-collapse: separate;
     border-spacing: 0;
     font-size: 0.92rem;
+    table-layout: auto;
 }
 
 .presence-matrix th {
@@ -1106,40 +1109,117 @@ tr.non-billable-highlight td {
     white-space: nowrap;
 }
 
+/* Larghezze minime colonne per prevenire wrapping */
 .presence-matrix th.col-user,
 .presence-matrix td.col-user {
-    min-width: 200px;
+    min-width: 250px;
+    width: 260px;
     white-space: nowrap;
 }
 
 .presence-matrix th.col-status,
 .presence-matrix td.col-status {
-    min-width: 155px;
+    min-width: 180px;
     white-space: nowrap;
 }
 
 .presence-matrix th.col-hours,
 .presence-matrix td.col-hours {
-    min-width: 120px;
+    min-width: 130px;
     white-space: nowrap;
+    font-variant-numeric: tabular-nums;
 }
 
 .presence-matrix th.col-deficit,
 .presence-matrix td.col-deficit {
-    min-width: 120px;
+    min-width: 125px;
     white-space: nowrap;
+    font-variant-numeric: tabular-nums;
 }
 
 .presence-matrix th.col-cs,
 .presence-matrix td.col-cs {
-    min-width: 145px;
+    min-width: 165px;
     white-space: nowrap;
 }
 
 .presence-matrix th.col-day,
 .presence-matrix td.col-day {
-    min-width: 110px;
+    min-width: 125px;
     white-space: nowrap;
+}
+
+/* Collaboratore badge interattivo */
+.matrix-user-cell {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    white-space: nowrap;
+    padding: 4px 8px;
+    border-radius: 8px;
+    transition: background 0.2s ease, transform 0.15s ease;
+}
+
+.matrix-user-cell:hover {
+    background: rgba(255, 255, 255, 0.08);
+    transform: translateX(2px);
+}
+
+.matrix-user-cell .user-avatar-icon {
+    font-size: 0.95rem;
+    opacity: 0.85;
+}
+
+.matrix-user-cell .user-name-text {
+    font-weight: 700;
+    color: var(--text-primary);
+    letter-spacing: 0.3px;
+    white-space: nowrap;
+    transition: color 0.2s ease;
+}
+
+.matrix-user-cell:hover .user-name-text {
+    color: var(--accent);
+}
+
+[data-theme="light"] .matrix-user-cell .user-name-text {
+    color: #1f2937;
+}
+
+/* Pill di Stato Matrice (no-wrap, iOS style) */
+.matrix-status-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    white-space: nowrap;
+    padding: 6px 14px;
+    border-radius: 999px;
+    font-size: 0.82rem;
+    font-weight: 700;
+    line-height: 1.2;
+    border: 1px solid transparent;
+    user-select: none;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+}
+
+.matrix-status-pill.status-danger {
+    color: #ef4444;
+    border-color: rgba(239, 68, 68, 0.45);
+    background: rgba(239, 68, 68, 0.14);
+}
+
+.matrix-status-pill.status-warning {
+    color: #f59e0b;
+    border-color: rgba(245, 158, 11, 0.45);
+    background: rgba(245, 158, 11, 0.14);
+}
+
+.matrix-status-pill.status-ok {
+    color: #10b981;
+    border-color: rgba(16, 185, 129, 0.45);
+    background: rgba(16, 185, 129, 0.14);
 }
 
 [data-theme="light"] .presence-matrix td {

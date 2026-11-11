@@ -615,7 +615,12 @@ function renderPresenceTile() {
         // 1. Nome Collaboratore
         const tdUser = document.createElement('td');
         tdUser.className = 'text-left col-user';
-        tdUser.innerHTML = `<span style="font-weight: 700; cursor: pointer; color: var(--accent); display: flex; align-items: center; gap: 6px; white-space: nowrap;" onclick="filterByTech('${escapeHtml(u.user)}')">👤 ${escapeHtml(u.user)}</span>`;
+        tdUser.innerHTML = `
+            <div class="matrix-user-cell" onclick="filterByTech('${escapeHtml(u.user)}')">
+                <span class="user-avatar-icon">👤</span>
+                <span class="user-name-text">${escapeHtml(u.user)}</span>
+            </div>
+        `;
         tr.appendChild(tdUser);
         
         // 2. Ore Totali
@@ -629,9 +634,9 @@ function renderPresenceTile() {
         tdMiss.className = 'col-deficit';
         const missHours = (u.days ? Object.values(u.days).reduce((acc, d) => acc + (d.missing_hours || 0), 0) : 0);
         if (missHours > 0) {
-            tdMiss.innerHTML = `<span style="color: #ef4444; font-weight: 800;">-${missHours.toFixed(1)}h</span>`;
+            tdMiss.innerHTML = `<span style="color: #ef4444; font-weight: 800; font-variant-numeric: tabular-nums;">-${missHours.toFixed(1)}h</span>`;
         } else {
-            tdMiss.innerHTML = `<span style="color: #10b981; font-weight: 700;">0.0h</span>`;
+            tdMiss.innerHTML = `<span style="color: #10b981; font-weight: 700; font-variant-numeric: tabular-nums;">0.0h</span>`;
         }
         tr.appendChild(tdMiss);
         
@@ -640,11 +645,11 @@ function renderPresenceTile() {
         tdStatus.className = 'col-status';
         const sc = u.status_counts || {};
         if (sc.missing > 0) {
-            tdStatus.innerHTML = `<span class="team-chip" style="color: #ef4444; border-color: rgba(239,68,68,0.45); background: rgba(239,68,68,0.12); font-weight: 700;">🔴 ${sc.missing} gg assente</span>`;
+            tdStatus.innerHTML = `<span class="matrix-status-pill status-danger">🔴 ${sc.missing} gg assente</span>`;
         } else if (sc.partial > 0) {
-            tdStatus.innerHTML = `<span class="team-chip" style="color: #f59e0b; border-color: rgba(245,158,11,0.45); background: rgba(245,158,11,0.12); font-weight: 700;">🟡 ${sc.partial} gg incompleti</span>`;
+            tdStatus.innerHTML = `<span class="matrix-status-pill status-warning">🟡 ${sc.partial} gg incompleti</span>`;
         } else {
-            tdStatus.innerHTML = `<span class="team-chip" style="color: #10b981; border-color: rgba(16,185,129,0.45); background: rgba(16,185,129,0.12); font-weight: 700;">🟢 Regolare</span>`;
+            tdStatus.innerHTML = `<span class="matrix-status-pill status-ok">🟢 Regolare</span>`;
         }
         tr.appendChild(tdStatus);
         
