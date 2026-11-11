@@ -103,9 +103,9 @@ body.modal-open {
     -webkit-backdrop-filter: blur(20px) saturate(180%);
     border: 1px solid rgba(255, 255, 255, 0.15);
     border-radius: 24px;
-    padding: 32px;
+    padding: 32px 36px;
     width: 100%;
-    max-width: 1040px;
+    max-width: min(1560px, 96vw);
     box-shadow: 0 30px 80px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.18);
 }
 [data-theme="light"] .glass-container {
@@ -938,10 +938,15 @@ tr.non-billable-highlight td {
 }
 
 .team-chip {
-    padding: 4px 10px;
-    border-radius: 16px;
-    font-size: 0.8rem;
-    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    white-space: nowrap;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 0.82rem;
+    font-weight: 700;
+    line-height: 1.2;
     cursor: pointer;
     border: 1px solid var(--border);
     background: rgba(0, 0, 0, 0.2);
@@ -1062,12 +1067,12 @@ tr.non-billable-highlight td {
     width: 100%;
     border-collapse: separate;
     border-spacing: 0;
-    font-size: 0.9rem;
+    font-size: 0.92rem;
 }
 
 .presence-matrix th {
     background: rgba(35, 35, 42, 0.95);
-    padding: 12px 14px;
+    padding: 14px 18px;
     color: var(--text-secondary);
     font-weight: 700;
     text-transform: uppercase;
@@ -1078,7 +1083,8 @@ tr.non-billable-highlight td {
     text-align: center;
 }
 
-.presence-matrix th.text-left {
+.presence-matrix th.text-left,
+.presence-matrix th.col-user {
     text-align: left;
 }
 
@@ -1087,14 +1093,53 @@ tr.non-billable-highlight td {
 }
 
 .presence-matrix td {
-    padding: 12px 14px;
+    padding: 14px 18px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.06);
     vertical-align: middle;
     text-align: center;
+    white-space: nowrap;
 }
 
-.presence-matrix td.text-left {
+.presence-matrix td.text-left,
+.presence-matrix td.col-user {
     text-align: left;
+    white-space: nowrap;
+}
+
+.presence-matrix th.col-user,
+.presence-matrix td.col-user {
+    min-width: 200px;
+    white-space: nowrap;
+}
+
+.presence-matrix th.col-status,
+.presence-matrix td.col-status {
+    min-width: 155px;
+    white-space: nowrap;
+}
+
+.presence-matrix th.col-hours,
+.presence-matrix td.col-hours {
+    min-width: 120px;
+    white-space: nowrap;
+}
+
+.presence-matrix th.col-deficit,
+.presence-matrix td.col-deficit {
+    min-width: 120px;
+    white-space: nowrap;
+}
+
+.presence-matrix th.col-cs,
+.presence-matrix td.col-cs {
+    min-width: 145px;
+    white-space: nowrap;
+}
+
+.presence-matrix th.col-day,
+.presence-matrix td.col-day {
+    min-width: 110px;
+    white-space: nowrap;
 }
 
 [data-theme="light"] .presence-matrix td {

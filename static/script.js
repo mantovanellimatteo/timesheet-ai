@@ -577,28 +577,33 @@ function renderPresenceTile() {
     
     // Header
     const thUser = document.createElement('th');
-    thUser.className = 'text-left';
+    thUser.className = 'text-left col-user';
     thUser.textContent = 'Collaboratore';
     head.appendChild(thUser);
     
     const thTotal = document.createElement('th');
+    thTotal.className = 'col-hours';
     thTotal.textContent = 'Ore Registrate';
     head.appendChild(thTotal);
     
     const thMiss = document.createElement('th');
+    thMiss.className = 'col-deficit';
     thMiss.textContent = 'Deficit Ore';
     head.appendChild(thMiss);
     
     const thCompliance = document.createElement('th');
+    thCompliance.className = 'col-status';
     thCompliance.textContent = 'Stato';
     head.appendChild(thCompliance);
     
     const thCS = document.createElement('th');
+    thCS.className = 'col-cs';
     thCS.textContent = 'Frammentazione (CS)';
     head.appendChild(thCS);
     
     (ps.working_days || []).forEach(dayStr => {
         const thDay = document.createElement('th');
+        thDay.className = 'col-day';
         thDay.textContent = dayStr;
         head.appendChild(thDay);
     });
@@ -609,17 +614,19 @@ function renderPresenceTile() {
         
         // 1. Nome Collaboratore
         const tdUser = document.createElement('td');
-        tdUser.className = 'text-left';
-        tdUser.innerHTML = `<span style="font-weight: 700; cursor: pointer; color: var(--accent); display: flex; align-items: center; gap: 6px;" onclick="filterByTech('${escapeHtml(u.user)}')">👤 ${escapeHtml(u.user)}</span>`;
+        tdUser.className = 'text-left col-user';
+        tdUser.innerHTML = `<span style="font-weight: 700; cursor: pointer; color: var(--accent); display: flex; align-items: center; gap: 6px; white-space: nowrap;" onclick="filterByTech('${escapeHtml(u.user)}')">👤 ${escapeHtml(u.user)}</span>`;
         tr.appendChild(tdUser);
         
         // 2. Ore Totali
         const tdTotal = document.createElement('td');
+        tdTotal.className = 'col-hours';
         tdTotal.innerHTML = `<strong>${u.total_hours.toFixed(2)}h</strong>`;
         tr.appendChild(tdTotal);
         
         // 3. Deficit Ore Mancanti
         const tdMiss = document.createElement('td');
+        tdMiss.className = 'col-deficit';
         const missHours = (u.days ? Object.values(u.days).reduce((acc, d) => acc + (d.missing_hours || 0), 0) : 0);
         if (missHours > 0) {
             tdMiss.innerHTML = `<span style="color: #ef4444; font-weight: 800;">-${missHours.toFixed(1)}h</span>`;
@@ -630,6 +637,7 @@ function renderPresenceTile() {
         
         // 4. Stato
         const tdStatus = document.createElement('td');
+        tdStatus.className = 'col-status';
         const sc = u.status_counts || {};
         if (sc.missing > 0) {
             tdStatus.innerHTML = `<span class="team-chip" style="color: #ef4444; border-color: rgba(239,68,68,0.45); background: rgba(239,68,68,0.12); font-weight: 700;">🔴 ${sc.missing} gg assente</span>`;
@@ -642,6 +650,7 @@ function renderPresenceTile() {
         
         // 5. Context Switching
         const tdCS = document.createElement('td');
+        tdCS.className = 'col-cs';
         const cs = u.context_switching || {};
         tdCS.innerHTML = `<span class="context-switching-pill level-${cs.level || 'low'}" title="${cs.total_unique_accounts || 0} commesse/account distinti">🔀 ${cs.avg_accounts_per_day || 0}/gg</span>`;
         tr.appendChild(tdCS);
@@ -649,6 +658,7 @@ function renderPresenceTile() {
         // Giorni
         (ps.working_days || []).forEach(dayStr => {
             const tdDay = document.createElement('td');
+            tdDay.className = 'col-day';
             const dInfo = u.days ? u.days[dayStr] : null;
             if (!dInfo || dInfo.status === 'missing') {
                 tdDay.innerHTML = `<span class="day-badge status-missing" onclick="filterByTechAndDate('${escapeHtml(u.user)}', '${dayStr}')" title="Nessuna ora registrata. Mancano 8h."><span>0.0h</span><span class="day-badge-sub">🔴 Assente</span></span>`;
