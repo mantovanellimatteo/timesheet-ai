@@ -235,10 +235,17 @@ function resetUpload() {
     if (nbUserFilter) nbUserFilter.style.display = 'none';
 
     // Ripristina KPI Cards
-    document.getElementById('kpi-ore-totali').textContent = '0';
-    document.getElementById('kpi-interventi-totali').textContent = '0';
-    document.getElementById('kpi-context-switching').textContent = '0%';
-    document.getElementById('kpi-context-switching').style.color = 'var(--success)';
+    const elOreTot = document.getElementById('kpi-ore-totali');
+    if (elOreTot) elOreTot.textContent = '0';
+    const elIntTot = document.getElementById('kpi-interventi-totali');
+    if (elIntTot) elIntTot.textContent = '0';
+    const elIntSub = document.getElementById('kpi-interventi-sub');
+    if (elIntSub) elIntSub.textContent = '0 registrazioni';
+    const elCS = document.getElementById('kpi-context-switching');
+    if (elCS) {
+        elCS.textContent = '0';
+        elCS.style.color = 'var(--success)';
+    }
     
     const kpiNB = document.getElementById('kpi-ore-non-fatturabili');
     if (kpiNB) {
@@ -1070,9 +1077,13 @@ function generateCharts(data, isExport = false) {
 
     const avgCS = csCount > 0 ? (csSum / csCount) * 100 : 0;
 
-    // Popola le KPI Cards nel DOM
-    document.getElementById('kpi-ore-totali').textContent = totalHoursAll.toFixed(1);
-    document.getElementById('kpi-interventi-totali').textContent = totalInterventions;
+    // Popola le KPI Cards nel DOM se presenti
+    const elOreTot = document.getElementById('kpi-ore-totali');
+    if (elOreTot) elOreTot.textContent = totalHoursAll.toFixed(1);
+    const elIntTot = document.getElementById('kpi-interventi-totali');
+    if (elIntTot) elIntTot.textContent = totalInterventions;
+    const elIntSub = document.getElementById('kpi-interventi-sub');
+    if (elIntSub) elIntSub.textContent = `${totalInterventions} registrazioni`;
 
     const kpiCS = document.getElementById('kpi-context-switching');
     kpiCS.textContent = avgCS.toFixed(1) + '%';
@@ -1430,6 +1441,7 @@ function loadRules() {
     .then(data => {
         currentRules = data.rules;
         const list = document.getElementById('rules-list');
+        if (!list) return;
         list.innerHTML = '';
         currentRules.forEach(rule => {
             const li = document.createElement('li');
