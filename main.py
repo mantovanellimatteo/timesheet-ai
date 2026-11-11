@@ -118,6 +118,24 @@ def safe_float(val):
     except:
         return 0.0
 
+def evaluate_native_rules(row):
+    """Regole di business aziendali preconfigurate e ottimizzate nativamente."""
+    errors = []
+    
+    # 1. Controllo Gettoni: il consuntivo ore per attività a gettone deve essere multiplo di 0,25h (15 min)
+    gruppo = str(row.get('Gruppo TimeSheet') or row.get('Gruppo Timesheet') or '').strip().upper()
+    if 'GETTONI' in gruppo or 'GETTONE' in gruppo:
+        ore = safe_float(row.get('Consuntivo Ore') or row.get('Ore') or 0)
+        if ore > 0 and abs((ore * 4) - round(ore * 4)) > 0.01:
+            errors.append("Ore gettone non conformi: devono essere multipli di 0,25h (15 min)")
+            
+    # 2. Controllo Fuori Orario Lavorativo
+    tipo_orario = str(row.get('Tipo Orario') or '').strip().lower()
+    if 'fuori orario' in tipo_orario:
+        errors.append("Attività registrata come Fuori orario lavorativo")
+        
+    return errors
+
 def evaluate_rules(row, rules, all_rows):
     errors = []
     # Eval context: usiamo globals perché le list comprehension non risolvono variabili dai locals in eval()
@@ -248,13 +266,15 @@ async def upload_file(file: UploadFile = File(...), ollama_ip: str = "127.0.0.1"
             'help', 'help desk', 'helpdesk', 'ticket', 'chiusura ticket', 'lavori vari'
         }
 
-        # Prima passata: Regole matematiche e Analisi Euristica Immediata delle descrizioni
+        # Prima passata: Regole native, matematiche e Analisi Euristica Immediata delle descrizioni
         ambiguous_candidates = {}  # desc_str -> [list of indices in results]
         for index, row in df.iterrows():
             row_dict = row.to_dict()
             
-            # Controllo Matematico (Cross-Row supportato)
-            errors = evaluate_rules(row_dict, rules, all_rows_for_eval)
+            # Controllo Matematico (Regole Native + eventuali regole custom attive)
+            errors = evaluate_native_rules(row_dict)
+            if rules:
+                errors.extend(evaluate_rules(row_dict, rules, all_rows_for_eval))
             row_dict['_Errore_Logico'] = " | ".join(errors) if errors else ""
             row_dict['_Avviso_IA'] = ""
             
@@ -306,7 +326,7 @@ Rispondi ESCLUSIVAMENTE in formato JSON con chiavi numeriche:
                 # Se Ollama non è raggiungibile o va in timeout, l'upload prosegue istantaneamente senza bloccarsi
                 pass
 
-        # Rilevamento giorni lavorativi mancanti
+        # Rilevamento presenza, conformità 8h/giorno e context switching
         date_col = None
         for col in ['Data', 'Giorno', 'Data Evasione']:
             if col in df.columns:
@@ -334,33 +354,58 @@ Rispondi ESCLUSIVAMENTE in formato JSON con chiavi numeriche:
             for r in results:
                 r[user_col] = 'Dipendente'
 
+        presence_summary = {
+            "working_days": [],
+            "users": [],
+            "global_metrics": {
+                "total_users": 0,
+                "total_hours": 0.0,
+                "working_days_count": 0,
+                "total_ok_days": 0,
+                "total_partial_days": 0,
+                "total_missing_days": 0,
+                "total_missing_hours": 0.0,
+                "total_non_billable_hours": 0.0,
+                "avg_context_switching": 0.0
+            }
+        }
+
         if date_col and user_col:
             parsed_dates = {}
-            unique_users = set()
-            user_dates = {}
+            unique_users = []
+            user_day_rows = {}      # (user, date_obj) -> [list of indices in results]
+            user_day_hours = {}     # (user, date_obj) -> float
+            user_day_accounts = {}  # (user, date_obj) -> set of account names
             
-            for r in results:
+            for idx, r in enumerate(results):
                 d_str = str(r.get(date_col, '')).strip()
                 u_str = str(r.get(user_col, '')).strip()
-                if u_str:
-                    unique_users.add(u_str)
-                    if u_str not in user_dates:
-                        user_dates[u_str] = set()
+                if u_str and u_str not in unique_users:
+                    unique_users.append(u_str)
                 
                 d_obj = parse_date(d_str)
                 if d_obj:
                     parsed_dates[d_str] = d_obj
                     if u_str:
-                        user_dates[u_str].add(d_obj)
+                        key = (u_str, d_obj)
+                        if key not in user_day_rows:
+                            user_day_rows[key] = []
+                            user_day_hours[key] = 0.0
+                            user_day_accounts[key] = set()
+                        user_day_rows[key].append(idx)
+                        
+                        ore = safe_float(r.get('Consuntivo Ore') or r.get('Ore') or 0)
+                        user_day_hours[key] += ore
+                        acc = str(r.get('Account') or r.get('Commessa') or '').strip()
+                        if acc:
+                            user_day_accounts[key].add(acc)
             
             if parsed_dates and unique_users:
                 min_date = min(parsed_dates.values())
                 max_date = max(parsed_dates.values())
                 
-                # Protezione: calcola giorni mancanti solo per intervalli ragionevoli (<= 90 giorni)
-                # per evitare loop infiniti o saturazione memoria con anni incongruenti
+                # Protezione: intervallo <= 90 giorni
                 if 0 <= (max_date - min_date).days <= 90:
-                    # Genera tutti i giorni lavorativi nel range
                     all_working_days = []
                     curr = min_date
                     while curr <= max_date:
@@ -368,38 +413,128 @@ Rispondi ESCLUSIVAMENTE in formato JSON con chiavi numeriche:
                             all_working_days.append(curr)
                         curr += timedelta(days=1)
                     
-                    # Indovina il formato dal primo elemento di parsed_dates
                     sample_format = "%d/%m/%Y"
-                    if parsed_dates:
-                        first_k = list(parsed_dates.keys())[0]
-                        if "/" in first_k:
-                            parts = first_k.split("/")
-                            if len(parts[0]) == 4:
-                                sample_format = "%Y/%m/%d"
-                            else:
-                                sample_format = "%d/%m/%Y"
-                        elif "-" in first_k:
-                            parts = first_k.split("-")
-                            if len(parts[0]) == 4:
-                                sample_format = "%Y-%m-%d"
-                            else:
-                                sample_format = "%d-%m-%Y"
+                    first_k = list(parsed_dates.keys())[0]
+                    if "/" in first_k and len(first_k.split("/")[0]) == 4:
+                        sample_format = "%Y/%m/%d"
+                    elif "-" in first_k:
+                        sample_format = "%Y-%m-%d" if len(first_k.split("-")[0]) == 4 else "%d-%m-%Y"
+                    
+                    presence_summary["working_days"] = [w.strftime(sample_format) for w in all_working_days]
+                    presence_summary["global_metrics"]["working_days_count"] = len(all_working_days)
+                    presence_summary["global_metrics"]["total_users"] = len(unique_users)
                     
                     virtual_rows = []
+                    users_summary_list = []
+                    
+                    total_all_hours = 0.0
+                    total_missing_hours = 0.0
+                    total_ok_days = 0
+                    total_partial_days = 0
+                    total_missing_days = 0
+                    all_technician_switches = []
+                    
                     for user in unique_users:
-                        logged_days = user_dates.get(user, set())
+                        user_days_dict = {}
+                        user_total_hours = 0.0
+                        user_ok = 0
+                        user_partial = 0
+                        user_missing = 0
+                        user_unique_accounts = set()
+                        user_switches_list = []
+                        
                         for w_day in all_working_days:
-                            if w_day not in logged_days:
+                            d_str = w_day.strftime(sample_format)
+                            key = (user, w_day)
+                            hrs = round(user_day_hours.get(key, 0.0), 2)
+                            user_total_hours += hrs
+                            
+                            accounts_set = user_day_accounts.get(key, set())
+                            for acc in accounts_set:
+                                user_unique_accounts.add(acc)
+                            if accounts_set:
+                                user_switches_list.append(len(accounts_set))
+                            
+                            if hrs == 0:
+                                # Giornata lavorativa completamente assente (0h su 8h)
+                                user_missing += 1
+                                total_missing_days += 1
+                                total_missing_hours += 8.0
+                                user_days_dict[d_str] = {
+                                    "hours": 0.0,
+                                    "status": "missing",
+                                    "missing_hours": 8.0,
+                                    "accounts_count": 0,
+                                    "entries_count": 0
+                                }
                                 # Crea riga virtuale
                                 v_row = {col: "" for col in df.columns}
-                                date_str = w_day.strftime(sample_format)
-                                v_row[date_col] = date_str
+                                v_row[date_col] = d_str
                                 v_row[user_col] = user
-                                v_row['_Errore_Logico'] = "Mancano le ore per questo giorno lavorativo!"
+                                v_row['_Errore_Logico'] = "Mancano le ore per questo giorno lavorativo! (0h su 8h)"
                                 v_row['_Avviso_IA'] = ""
                                 virtual_rows.append(v_row)
+                            elif hrs < 8.0:
+                                # Giornata parziale/incompleta (< 8h)
+                                user_partial += 1
+                                total_partial_days += 1
+                                miss = round(8.0 - hrs, 2)
+                                total_missing_hours += miss
+                                user_days_dict[d_str] = {
+                                    "hours": hrs,
+                                    "status": "partial",
+                                    "missing_hours": miss,
+                                    "accounts_count": len(accounts_set),
+                                    "entries_count": len(user_day_rows.get(key, []))
+                                }
+                                # Aggiunge segnalazione sulle righe effettive di quel giorno
+                                partial_msg = f"Giornata incompleta: registrate {hrs:g}h su 8h previste (mancano {miss:g}h)"
+                                for r_idx in user_day_rows.get(key, []):
+                                    existing = results[r_idx]['_Errore_Logico']
+                                    results[r_idx]['_Errore_Logico'] = (existing + " | " + partial_msg) if existing else partial_msg
+                            else:
+                                # Giornata completa (>= 8h)
+                                user_ok += 1
+                                total_ok_days += 1
+                                user_days_dict[d_str] = {
+                                    "hours": hrs,
+                                    "status": "ok",
+                                    "missing_hours": 0.0,
+                                    "accounts_count": len(accounts_set),
+                                    "entries_count": len(user_day_rows.get(key, []))
+                                }
+                        
+                        total_all_hours += user_total_hours
+                        avg_sw = round(sum(user_switches_list) / len(user_switches_list), 1) if user_switches_list else 0.0
+                        if user_switches_list:
+                            all_technician_switches.extend(user_switches_list)
+                            
+                        users_summary_list.append({
+                            "user": user,
+                            "total_hours": round(user_total_hours, 2),
+                            "days": user_days_dict,
+                            "status_counts": {
+                                "ok": user_ok,
+                                "partial": user_partial,
+                                "missing": user_missing
+                            },
+                            "context_switching": {
+                                "avg_accounts_per_day": avg_sw,
+                                "total_unique_accounts": len(user_unique_accounts),
+                                "level": "high" if avg_sw >= 5.0 else ("medium" if avg_sw >= 3.0 else "low")
+                            }
+                        })
                     
                     results.extend(virtual_rows)
+                    
+                    # Ordina utenti: prima chi ha più giorni mancanti o incompleti
+                    presence_summary["users"] = sorted(users_summary_list, key=lambda x: (x["status_counts"]["missing"], x["status_counts"]["partial"]), reverse=True)
+                    presence_summary["global_metrics"]["total_hours"] = round(total_all_hours, 2)
+                    presence_summary["global_metrics"]["total_ok_days"] = total_ok_days
+                    presence_summary["global_metrics"]["total_partial_days"] = total_partial_days
+                    presence_summary["global_metrics"]["total_missing_days"] = total_missing_days
+                    presence_summary["global_metrics"]["total_missing_hours"] = round(total_missing_hours, 2)
+                    presence_summary["global_metrics"]["avg_context_switching"] = round(sum(all_technician_switches) / len(all_technician_switches), 1) if all_technician_switches else 0.0
                 
                 # Ordina cronologicamente
                 def get_sort_key(r):
@@ -411,7 +546,7 @@ Rispondi ESCLUSIVAMENTE in formato JSON con chiavi numeriche:
                 
                 results.sort(key=get_sort_key)
 
-        return {"status": "success", "data": results}
+        return {"status": "success", "data": results, "presence_summary": presence_summary}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

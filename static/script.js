@@ -1,4 +1,6 @@
 let currentData = [];
+let currentPresenceSummary = null;
+let currentActiveTile = 'tile-presence';
 let currentRules = [];
 let editingId = null;
 let chartTeam = null;
@@ -10,9 +12,6 @@ document.addEventListener('DOMContentLoaded', () => {
     initTheme();
     initParticles();
     initIPs();
-    if(document.getElementById('rules-tab').classList.contains('active')) {
-        loadRules();
-    }
 });
 
 // --- THEME ---
@@ -296,16 +295,30 @@ function startAnalysis() {
         hideMagicOverlay();
         if (data.status === 'success') {
             currentData = data.data;
+            currentPresenceSummary = data.presence_summary || null;
             selectedTeamMember = 'ALL';
             setupTeamView(currentData);
-            updateDashboardView();
-            document.getElementById('drop-zone').classList.remove('hidden');
             
-            // Cambia l'UI del drop-zone per invitare a un nuovo report
+            // Badge Periodo nella top bar
+            const periodBadge = document.getElementById('report-period-badge');
+            if (periodBadge && currentPresenceSummary && currentPresenceSummary.working_days && currentPresenceSummary.working_days.length > 0) {
+                const wDays = currentPresenceSummary.working_days;
+                const periodText = wDays.length === 1 ? wDays[0] : `${wDays[0]} — ${wDays[wDays.length - 1]}`;
+                periodBadge.textContent = `📅 Periodo: ${periodText} (${wDays.length} gg lavorativi)`;
+            } else if (periodBadge) {
+                periodBadge.textContent = '';
+            }
+            
+            updateDashboardView();
+            switchTile('tile-presence');
+            
+            document.getElementById('drop-zone').classList.remove('hidden');
             document.getElementById('btn-select-file').classList.add('hidden');
             document.getElementById('btn-new-file').classList.remove('hidden');
             document.getElementById('drop-zone-text').textContent = "Report generato. Chiudilo per caricarne uno nuovo.";
             
+            document.getElementById('results-container').classList.remove('hidden');
+            document.getElementById('results-container').scrollIntoView({ behavior: 'smooth', block: 'start' });
         } else {
             alert('Errore: ' + (data.detail || 'Operazione fallita'));
             resetUpload();
@@ -394,6 +407,7 @@ function setupTeamView(data) {
     const select = document.getElementById('team-user-select');
     const badge = document.getElementById('team-stats-badge');
     const nbUserFilter = document.getElementById('nb-modal-user-filter');
+    const qualityUserFilter = document.getElementById('filter-user-quality-select');
 
     if (teamMembersList.length > 1) {
         if (container) container.classList.remove('hidden');
@@ -415,6 +429,23 @@ function setupTeamView(data) {
             select.value = selectedTeamMember;
         }
 
+        if (qualityUserFilter) {
+            qualityUserFilter.style.display = 'inline-block';
+            qualityUserFilter.innerHTML = '';
+            const optAll = document.createElement('option');
+            optAll.value = 'ALL';
+            optAll.textContent = `Tutti i tecnici (${teamMembersList.length})`;
+            qualityUserFilter.appendChild(optAll);
+
+            teamMembersList.forEach(m => {
+                const opt = document.createElement('option');
+                opt.value = m;
+                opt.textContent = `👤 ${m}`;
+                qualityUserFilter.appendChild(opt);
+            });
+            qualityUserFilter.value = selectedTeamMember;
+        }
+
         if (nbUserFilter) {
             nbUserFilter.style.display = 'inline-block';
             nbUserFilter.innerHTML = '';
@@ -434,6 +465,7 @@ function setupTeamView(data) {
     } else {
         if (container) container.classList.add('hidden');
         if (nbUserFilter) nbUserFilter.style.display = 'none';
+        if (qualityUserFilter) qualityUserFilter.style.display = 'none';
     }
 }
 
@@ -442,6 +474,9 @@ function onTeamUserChange(val) {
     
     const select = document.getElementById('team-user-select');
     if (select && select.value !== selectedTeamMember) select.value = selectedTeamMember;
+
+    const qualityUserFilter = document.getElementById('filter-user-quality-select');
+    if (qualityUserFilter && qualityUserFilter.value !== selectedTeamMember) qualityUserFilter.value = selectedTeamMember;
 
     const nbUserFilter = document.getElementById('nb-modal-user-filter');
     if (nbUserFilter && nbUserFilter.value !== selectedTeamMember) nbUserFilter.value = selectedTeamMember;
@@ -470,25 +505,306 @@ function getActiveData() {
     return currentData.filter(row => getUserOfRow(row) === selectedTeamMember);
 }
 
+// ===== TILE SWITCHER =====
+function switchTile(tileId) {
+    currentActiveTile = tileId;
+    document.querySelectorAll('.tile-pane').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tile-tab-btn').forEach(b => b.classList.remove('active'));
+    
+    const targetPane = document.getElementById(tileId);
+    if (targetPane) targetPane.classList.add('active');
+    
+    const targetBtn = document.getElementById('btn-' + tileId);
+    if (targetBtn) targetBtn.classList.add('active');
+    
+    if (tileId === 'tile-analytics') {
+        if (chartTeam) chartTeam.resize();
+        if (chartGruppo) chartGruppo.resize();
+        if (chartAccount) chartAccount.resize();
+    }
+}
+
 function updateDashboardView() {
+    renderPresenceTile();
+    renderAnalyticsTile();
+    renderResultsTable();
+    updateQualityKPIs();
+}
+
+// ===== TILE 1: CONTROLLO PRESENZA ORE =====
+function renderPresenceTile() {
+    if (!currentPresenceSummary) return;
+    
+    const ps = currentPresenceSummary;
+    const gm = ps.global_metrics || {};
+    
+    const kpiUsers = document.getElementById('kpi-presence-users');
+    const kpiOk = document.getElementById('kpi-presence-ok');
+    const kpiPartial = document.getElementById('kpi-presence-partial');
+    const kpiMissing = document.getElementById('kpi-presence-missing');
+    const kpiMissHours = document.getElementById('kpi-presence-missing-hours');
+    
+    if (kpiUsers) kpiUsers.textContent = gm.total_users || 0;
+    if (kpiOk) kpiOk.textContent = gm.total_ok_days || 0;
+    if (kpiPartial) kpiPartial.textContent = gm.total_partial_days || 0;
+    if (kpiMissing) kpiMissing.textContent = gm.total_missing_days || 0;
+    if (kpiMissHours) kpiMissHours.textContent = (gm.total_missing_hours || 0).toFixed(1) + 'h';
+    
+    const alertBadge = document.getElementById('presence-badge-alert');
+    const totalIssues = (gm.total_partial_days || 0) + (gm.total_missing_days || 0);
+    if (alertBadge) {
+        if (totalIssues > 0) {
+            alertBadge.textContent = totalIssues;
+            alertBadge.classList.remove('hidden');
+        } else {
+            alertBadge.classList.add('hidden');
+        }
+    }
+    
+    const head = document.getElementById('presence-head');
+    const body = document.getElementById('presence-body');
+    if (!head || !body) return;
+    
+    head.innerHTML = '';
+    body.innerHTML = '';
+    
+    // Header
+    const thUser = document.createElement('th');
+    thUser.className = 'text-left';
+    thUser.textContent = 'Collaboratore';
+    head.appendChild(thUser);
+    
+    const thTotal = document.createElement('th');
+    thTotal.textContent = 'Ore Registrate';
+    head.appendChild(thTotal);
+    
+    const thMiss = document.createElement('th');
+    thMiss.textContent = 'Deficit Ore';
+    head.appendChild(thMiss);
+    
+    const thCompliance = document.createElement('th');
+    thCompliance.textContent = 'Stato';
+    head.appendChild(thCompliance);
+    
+    const thCS = document.createElement('th');
+    thCS.textContent = 'Frammentazione (CS)';
+    head.appendChild(thCS);
+    
+    (ps.working_days || []).forEach(dayStr => {
+        const thDay = document.createElement('th');
+        thDay.textContent = dayStr;
+        head.appendChild(thDay);
+    });
+    
+    // Righe Collaboratori
+    (ps.users || []).forEach(u => {
+        const tr = document.createElement('tr');
+        
+        // 1. Nome Collaboratore
+        const tdUser = document.createElement('td');
+        tdUser.className = 'text-left';
+        tdUser.innerHTML = `<span style="font-weight: 700; cursor: pointer; color: var(--accent); display: flex; align-items: center; gap: 6px;" onclick="filterByTech('${escapeHtml(u.user)}')">👤 ${escapeHtml(u.user)}</span>`;
+        tr.appendChild(tdUser);
+        
+        // 2. Ore Totali
+        const tdTotal = document.createElement('td');
+        tdTotal.innerHTML = `<strong>${u.total_hours.toFixed(2)}h</strong>`;
+        tr.appendChild(tdTotal);
+        
+        // 3. Deficit Ore Mancanti
+        const tdMiss = document.createElement('td');
+        const missHours = (u.days ? Object.values(u.days).reduce((acc, d) => acc + (d.missing_hours || 0), 0) : 0);
+        if (missHours > 0) {
+            tdMiss.innerHTML = `<span style="color: #ef4444; font-weight: 800;">-${missHours.toFixed(1)}h</span>`;
+        } else {
+            tdMiss.innerHTML = `<span style="color: #10b981; font-weight: 700;">0.0h</span>`;
+        }
+        tr.appendChild(tdMiss);
+        
+        // 4. Stato
+        const tdStatus = document.createElement('td');
+        const sc = u.status_counts || {};
+        if (sc.missing > 0) {
+            tdStatus.innerHTML = `<span class="team-chip" style="color: #ef4444; border-color: rgba(239,68,68,0.45); background: rgba(239,68,68,0.12); font-weight: 700;">🔴 ${sc.missing} gg assente</span>`;
+        } else if (sc.partial > 0) {
+            tdStatus.innerHTML = `<span class="team-chip" style="color: #f59e0b; border-color: rgba(245,158,11,0.45); background: rgba(245,158,11,0.12); font-weight: 700;">🟡 ${sc.partial} gg incompleti</span>`;
+        } else {
+            tdStatus.innerHTML = `<span class="team-chip" style="color: #10b981; border-color: rgba(16,185,129,0.45); background: rgba(16,185,129,0.12); font-weight: 700;">🟢 Regolare</span>`;
+        }
+        tr.appendChild(tdStatus);
+        
+        // 5. Context Switching
+        const tdCS = document.createElement('td');
+        const cs = u.context_switching || {};
+        tdCS.innerHTML = `<span class="context-switching-pill level-${cs.level || 'low'}" title="${cs.total_unique_accounts || 0} commesse/account distinti">🔀 ${cs.avg_accounts_per_day || 0}/gg</span>`;
+        tr.appendChild(tdCS);
+        
+        // Giorni
+        (ps.working_days || []).forEach(dayStr => {
+            const tdDay = document.createElement('td');
+            const dInfo = u.days ? u.days[dayStr] : null;
+            if (!dInfo || dInfo.status === 'missing') {
+                tdDay.innerHTML = `<span class="day-badge status-missing" onclick="filterByTechAndDate('${escapeHtml(u.user)}', '${dayStr}')" title="Nessuna ora registrata. Mancano 8h."><span>0.0h</span><span class="day-badge-sub">🔴 Assente</span></span>`;
+            } else if (dInfo.status === 'partial') {
+                tdDay.innerHTML = `<span class="day-badge status-partial" onclick="filterByTechAndDate('${escapeHtml(u.user)}', '${dayStr}')" title="Registrate ${dInfo.hours}h su 8h. Mancano ${dInfo.missing_hours}h."><span>${dInfo.hours}h</span><span class="day-badge-sub">🟡 -${dInfo.missing_hours}h</span></span>`;
+            } else {
+                tdDay.innerHTML = `<span class="day-badge status-ok" onclick="filterByTechAndDate('${escapeHtml(u.user)}', '${dayStr}')" title="Giornata regolare: ${dInfo.hours}h registrate"><span>${dInfo.hours}h</span><span class="day-badge-sub">🟢 OK</span></span>`;
+            }
+            tr.appendChild(tdDay);
+        });
+        
+        body.appendChild(tr);
+    });
+}
+
+function filterByTechAndDate(tech, dateStr) {
+    const qualityUserFilter = document.getElementById('filter-user-quality-select');
+    if (qualityUserFilter) {
+        qualityUserFilter.value = tech || 'ALL';
+    }
+    selectedTeamMember = tech || 'ALL';
+    
+    const searchInput = document.getElementById('search-table-input');
+    if (searchInput) {
+        searchInput.value = dateStr || '';
+    }
+    
+    const filterType = document.getElementById('filter-type-select');
+    if (filterType) {
+        filterType.value = 'ALL_ROWS';
+    }
+    
+    switchTile('tile-quality');
+    renderResultsTable();
+    
+    const tableEl = document.getElementById('results-table');
+    if (tableEl) {
+        tableEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+}
+
+function filterByTech(tech) {
+    const qualityUserFilter = document.getElementById('filter-user-quality-select');
+    if (qualityUserFilter) {
+        qualityUserFilter.value = tech || 'ALL';
+    }
+    selectedTeamMember = tech || 'ALL';
+    
+    const searchInput = document.getElementById('search-table-input');
+    if (searchInput) {
+        searchInput.value = '';
+    }
+    
+    switchTile('tile-quality');
+    renderResultsTable();
+    
+    const tableEl = document.getElementById('results-table');
+    if (tableEl) {
+        tableEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+}
+
+// ===== TILE 2: ANALYTICS, NON FATTURABILI & GRAFICI =====
+function renderAnalyticsTile() {
     const activeData = getActiveData();
-    renderTable(activeData);
+    let totalOre = 0;
+    let nonBillableOre = 0;
+    
+    activeData.forEach(row => {
+        let ore = 0;
+        if ('Consuntivo Ore' in row) ore = safeFloatJS(row['Consuntivo Ore']);
+        else if ('Ore' in row) ore = safeFloatJS(row['Ore']);
+        else ore = 1;
+        totalOre += ore;
+        
+        if (getNonBillableCategory(row) !== null) {
+            nonBillableOre += ore;
+        }
+    });
+    
+    const billableOre = Math.max(0, totalOre - nonBillableOre);
+    const percBillable = totalOre > 0 ? ((billableOre / totalOre) * 100).toFixed(0) : 0;
+    const percNonBillable = totalOre > 0 ? ((nonBillableOre / totalOre) * 100).toFixed(0) : 0;
+    
+    const elTotali = document.getElementById('kpi-ore-totali');
+    const elSub = document.getElementById('kpi-interventi-sub');
+    const elFatt = document.getElementById('kpi-ore-fatturabili');
+    const elPercFatt = document.getElementById('kpi-perc-fatturabili');
+    const elNonFatt = document.getElementById('kpi-ore-non-fatturabili');
+    const elPercNonFatt = document.getElementById('kpi-perc-non-fatturabili');
+    const elCS = document.getElementById('kpi-context-switching');
+    
+    if (elTotali) elTotali.textContent = totalOre.toFixed(1);
+    if (elSub) elSub.textContent = `${activeData.length} registrazioni`;
+    if (elFatt) elFatt.textContent = billableOre.toFixed(1);
+    if (elPercFatt) elPercFatt.textContent = `(${percBillable}% del totale)`;
+    if (elNonFatt) elNonFatt.textContent = nonBillableOre.toFixed(1);
+    if (elPercNonFatt) elPercNonFatt.textContent = `(${percNonBillable}% del totale)`;
+    
+    // Context Switching KPI
+    let csVal = 0;
+    if (selectedTeamMember === 'ALL' && currentPresenceSummary && currentPresenceSummary.global_metrics) {
+        csVal = currentPresenceSummary.global_metrics.avg_context_switching || 0;
+    } else if (currentPresenceSummary && currentPresenceSummary.users) {
+        const uObj = currentPresenceSummary.users.find(u => u.user === selectedTeamMember);
+        if (uObj && uObj.context_switching) {
+            csVal = uObj.context_switching.avg_accounts_per_day || 0;
+        }
+    }
+    if (elCS) elCS.textContent = csVal.toFixed(1);
+    
     generateCharts(activeData);
 }
 
-function renderTable(data) {
+// ===== TILE 3: CONTROLLO LOGICO & QUALITÀ NOTE =====
+function updateQualityKPIs() {
+    if (!currentData) return;
+    
+    let ruleErrors = 0;
+    let aiWarnings = 0;
+    let flaggedRows = 0;
+    
+    currentData.forEach(r => {
+        const hasErr = !!r['_Errore_Logico'];
+        const hasWarn = !!r['_Avviso_IA'];
+        if (hasErr) ruleErrors++;
+        if (hasWarn) aiWarnings++;
+        if (hasErr || hasWarn) flaggedRows++;
+    });
+    
+    const elErr = document.getElementById('kpi-rule-errors-count');
+    const elWarn = document.getElementById('kpi-ai-warnings-count');
+    const elTot = document.getElementById('kpi-total-flagged-count');
+    const badge = document.getElementById('quality-badge-alert');
+    
+    if (elErr) elErr.textContent = ruleErrors;
+    if (elWarn) elWarn.textContent = aiWarnings;
+    if (elTot) elTot.textContent = flaggedRows;
+    
+    if (badge) {
+        if (flaggedRows > 0) {
+            badge.textContent = flaggedRows;
+            badge.classList.remove('hidden');
+        } else {
+            badge.classList.add('hidden');
+        }
+    }
+}
+
+function renderResultsTable() {
     const head = document.getElementById('table-head');
     const body = document.getElementById('table-body');
+    if (!head || !body) return;
     head.innerHTML = '';
     body.innerHTML = '';
 
-    if (data.length === 0) return;
+    if (!currentData || currentData.length === 0) return;
 
-    const filterErrors = document.getElementById('filter-errors').checked;
-    const filterNonBillable = document.getElementById('filter-non-billable') ? document.getElementById('filter-non-billable').checked : false;
+    const filterType = document.getElementById('filter-type-select') ? document.getElementById('filter-type-select').value : 'ALL_ISSUES';
+    const filterUser = document.getElementById('filter-user-quality-select') ? document.getElementById('filter-user-quality-select').value : 'ALL';
+    const searchQuery = document.getElementById('search-table-input') ? document.getElementById('search-table-input').value.toLowerCase().trim() : '';
 
-    // Filter out internal columns from headers
-    const columns = Object.keys(data[0]).filter(c => c !== '_Errore_Logico' && c !== '_Avviso_IA');
+    const columns = Object.keys(currentData[0]).filter(c => c !== '_Errore_Logico' && c !== '_Avviso_IA');
     
     columns.forEach(col => {
         const th = document.createElement('th');
@@ -496,21 +812,35 @@ function renderTable(data) {
         head.appendChild(th);
     });
 
-    // Create rows
     let rowsShown = 0;
-    data.forEach(row => {
-        const hasError = row['_Errore_Logico'] !== '';
-        const hasWarning = row['_Avviso_IA'] !== '';
+    currentData.forEach(row => {
+        // Filtro Tecnico
+        if (filterUser !== 'ALL' && getUserOfRow(row) !== filterUser) {
+            return;
+        }
+
+        const hasError = !!row['_Errore_Logico'];
+        const hasWarning = !!row['_Avviso_IA'];
         const nbCat = getNonBillableCategory(row);
         const isNonBillable = nbCat !== null;
-        
-        if (filterNonBillable) {
-            // Mostra esclusivamente le righe non fatturabili
-            if (!isNonBillable) return;
-        } else if (filterErrors) {
-            // Mostra solo righe con errori o avvisi
+
+        // Filtro Tipologia
+        if (filterType === 'ALL_ISSUES') {
             if (!hasError && !hasWarning) return;
+        } else if (filterType === 'ONLY_ERRORS') {
+            if (!hasError) return;
+        } else if (filterType === 'ONLY_AI') {
+            if (!hasWarning) return;
+        } else if (filterType === 'NON_BILLABLE') {
+            if (!isNonBillable) return;
         }
+
+        // Filtro Ricerca
+        if (searchQuery) {
+            const rowValues = Object.values(row).join(' ').toLowerCase();
+            if (!rowValues.includes(searchQuery)) return;
+        }
+
         rowsShown++;
 
         // Render Error Band
@@ -519,7 +849,7 @@ function renderTable(data) {
             trBand.className = 'error-band';
             const tdBand = document.createElement('td');
             tdBand.colSpan = columns.length;
-            tdBand.innerHTML = `<strong>⛔ ERRORE LOGICO:</strong> ${row['_Errore_Logico']}`;
+            tdBand.innerHTML = `<strong>⛔ ERRORE LOGICO:</strong> ${escapeHtml(row['_Errore_Logico'])}`;
             trBand.appendChild(tdBand);
             body.appendChild(trBand);
         }
@@ -530,7 +860,7 @@ function renderTable(data) {
             trBand.className = 'warning-band';
             const tdBand = document.createElement('td');
             tdBand.colSpan = columns.length;
-            tdBand.innerHTML = `<strong>⚠️ AVVISO IA:</strong> ${row['_Avviso_IA']}`;
+            tdBand.innerHTML = `<strong>⚠️ AVVISO IA:</strong> ${escapeHtml(row['_Avviso_IA'])}`;
             trBand.appendChild(tdBand);
             body.appendChild(trBand);
         }
@@ -547,7 +877,7 @@ function renderTable(data) {
             if (isNonBillable && (colLower.includes('gruppo') || colLower === 'tipo')) {
                 td.innerHTML = `${escapeHtml(val)} <span class="badge-non-billable" title="Voce non fatturabile (${escapeHtml(nbCat)})">Non Fatturabile</span>`;
             } else if (colLower.includes('responsabile') || colLower === 'tecnico') {
-                td.innerHTML = `<span class="team-user-badge">👤 ${escapeHtml(val)}</span>`;
+                td.innerHTML = `<span class="team-user-badge" style="cursor:pointer;" onclick="filterByTech('${escapeHtml(val)}')">👤 ${escapeHtml(val)}</span>`;
             } else {
                 td.textContent = val;
             }
@@ -560,18 +890,13 @@ function renderTable(data) {
         const tr = document.createElement('tr');
         const td = document.createElement('td');
         td.colSpan = columns.length;
-        td.textContent = "Nessun errore o avviso trovato! Tutto perfetto.";
+        td.textContent = "Nessun record corrisponde ai filtri selezionati.";
         td.style.textAlign = 'center';
-        td.style.color = 'var(--success)';
+        td.style.color = 'var(--text-secondary)';
+        td.style.padding = '30px';
         tr.appendChild(td);
         body.appendChild(tr);
     }
-
-    document.getElementById('results-container').classList.remove('hidden');
-}
-
-function toggleFilter() {
-    renderTable(getActiveData());
 }
 
 // ===== CHART.JS DASHBOARD =====
