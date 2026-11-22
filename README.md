@@ -123,6 +123,23 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 
 Apri il browser su `http://localhost:8000`
 
+### Variabili d'ambiente (opzionali)
+
+| Variabile | Default | Descrizione |
+|---|---|---|
+| `OLLAMA_ALLOWED_HOSTS` | *(vuoto)* | Elenco di host Ollama consentiti, separati da virgola (es. `127.0.0.1,192.168.1.245`). Se vuoto sono accettati solo IP di rete privata o loopback. |
+| `OLLAMA_MODEL` | `gemma4:e2b` | Modello usato da Ollama |
+| `OLLAMA_PORT` | `11434` | Porta del server Ollama |
+| `OLLAMA_HOST_DEFAULT` | `127.0.0.1` | Host usato se il client non ne indica uno |
+| `TIMESHEET_DB` | `timesheet_rules.db` | Percorso del database SQLite delle regole |
+
+### Test
+
+```bash
+pip install -r requirements-dev.txt
+python -m pytest -q
+```
+
 ---
 
 ## Configurazione Ollama
@@ -144,7 +161,13 @@ ollama serve
 
 ```
 timesheet-ai/
-├── main.py              # Backend FastAPI
+├── main.py              # API FastAPI (regole, upload, generatore IA)
+├── analysis.py          # Pipeline di analisi: parsing, controlli, presenze, context switching
+├── rules_engine.py      # Validazione (AST) e valutazione sicura delle regole custom
+├── config.py            # Configurazione da variabili d'ambiente + validazione host Ollama
+├── requirements.txt     # Dipendenze runtime
+├── requirements-dev.txt # Dipendenze per i test
+├── tests/               # Test pytest
 ├── static/
 │   ├── index.html       # Interfaccia utente
 │   ├── styles.css       # Stili (tema Smeup)
@@ -161,6 +184,12 @@ Le regole si basano su espressioni Python. Hai a disposizione:
 - `row`: la singola riga analizzata (Dizionario)
 - `rows`: tutte le righe del documento (Lista di Dizionari, utile per il cross-row)
 - `safe_float(val)`: funzione per convertire numeri con la virgola (2,5) ed evitare crash su celle vuote.
+- Funzioni: `str`, `int`, `float`, `len`, `abs`, `sum`, `any`, `all`, `min`, `max`, `round`, `bool`.
+- Metodi di stringa/dizionario: `get`, `strip`, `upper`, `lower`, `startswith`, `endswith`, `replace`, `split`, ecc.
+
+Per sicurezza le espressioni vengono validate prima del salvataggio: non sono ammessi `import`, `lambda`,
+accesso ad attributi interni (`__class__`, ...), `pd` o funzioni fuori whitelist. Le regole salvate in
+passato che non rispettano questi vincoli vengono segnalate come *non valide* e non eseguite.
 
 **Esempio 1 — Singola Riga (Gettoni errati):**
 ```python
