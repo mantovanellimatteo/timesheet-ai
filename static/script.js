@@ -388,36 +388,60 @@ function startAnalysis() {
 }
 
 // -- Magic Overlay --
-const MAGIC_EMOJIS = ['✨', '⭐', '🌟', '💫', '✦', '✶', '❋', '✺', '✷', '🔮', '✦'];
+// Fasi mostrate durante l'analisi (la richiesta è unica: le fasi si alternano a tempo)
+const MAGIC_STEPS = [
+    'Lettura del file…',
+    'Controllo regole e presenze…',
+    "Verifica delle note con l'IA…",
+    'Calcolo degli indicatori…',
+    'Preparazione della dashboard…'
+];
 let magicInterval = null;
+let magicStepInterval = null;
 
 function showMagicOverlay() {
     const overlay = document.getElementById('magic-overlay');
     overlay.classList.remove('hidden');
-    
+
     const container = document.getElementById('magic-stars');
     container.innerHTML = '';
-    
-    // Spawn stars continuously
+    const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    // Fasi dell'analisi
+    const stepEl = document.getElementById('magic-step');
+    let step = 0;
+    if (stepEl) stepEl.textContent = MAGIC_STEPS[0];
+    magicStepInterval = setInterval(() => {
+        if (step >= MAGIC_STEPS.length - 1 || !stepEl) return;
+        step++;
+        stepEl.classList.remove('step-in');
+        void stepEl.offsetWidth; // riavvia l'animazione
+        stepEl.textContent = MAGIC_STEPS[step];
+        stepEl.classList.add('step-in');
+    }, 1100);
+
+    if (reduceMotion) return;
+    // Scintille luminose che salgono
     magicInterval = setInterval(() => {
-        const star = document.createElement('div');
-        star.className = 'magic-star';
-        star.textContent = MAGIC_EMOJIS[Math.floor(Math.random() * MAGIC_EMOJIS.length)];
-        star.style.left = Math.random() * 90 + 5 + '%';
-        star.style.bottom = '10%';
-        const duration = 2.5 + Math.random() * 2.5;
-        star.style.animationDuration = duration + 's';
-        star.style.animationDelay = '0s';
-        star.style.fontSize = (1 + Math.random() * 1.5) + 'rem';
-        container.appendChild(star);
-        // Cleanup after animation
-        setTimeout(() => star.remove(), duration * 1000 + 200);
-    }, 200);
+        const spark = document.createElement('span');
+        spark.className = 'magic-spark';
+        spark.style.left = (8 + Math.random() * 84) + '%';
+        const size = 2 + Math.random() * 4;
+        spark.style.width = spark.style.height = size + 'px';
+        const duration = 2.8 + Math.random() * 2.4;
+        spark.style.animationDuration = duration + 's';
+        spark.style.setProperty('--drift', (Math.random() * 40 - 20) + 'px');
+        spark.style.setProperty('--hue', ['#ff4d6d', '#bf5af2', '#64d2ff', '#ffffff'][Math.floor(Math.random() * 4)]);
+        container.appendChild(spark);
+        setTimeout(() => spark.remove(), duration * 1000 + 200);
+    }, 160);
 }
 
 function hideMagicOverlay() {
     clearInterval(magicInterval);
+    clearInterval(magicStepInterval);
     magicInterval = null;
+    magicStepInterval = null;
     document.getElementById('magic-overlay').classList.add('hidden');
     document.getElementById('magic-stars').innerHTML = '';
 }

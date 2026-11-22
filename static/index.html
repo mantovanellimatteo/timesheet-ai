@@ -58,10 +58,19 @@
                 </div>
 
                 <!-- Magic overlay -->
-                <div id="magic-overlay" class="hidden">
-                    <div class="magic-stars" id="magic-stars"></div>
-                    <div class="magic-text">Stiamo facendo la magia...</div>
-                    <div class="magic-sub">L'agente AI sta analizzando il tuo timesheet</div>
+                <div id="magic-overlay" class="hidden" role="status" aria-live="polite">
+                    <div class="magic-card">
+                        <div class="magic-stars" id="magic-stars"></div>
+                        <div class="magic-orb" aria-hidden="true">
+                            <span class="orb-blob orb-a"></span>
+                            <span class="orb-blob orb-b"></span>
+                            <span class="orb-blob orb-c"></span>
+                            <span class="orb-gloss"></span>
+                        </div>
+                        <div class="magic-text">Stiamo facendo la magia</div>
+                        <div class="magic-sub" id="magic-step">Lettura del file…</div>
+                        <div class="magic-progress"><span></span></div>
+                    </div>
                 </div>
 
                 <div id="loading" class="hidden">

@@ -514,6 +514,197 @@ body[data-theme="dark"] {
     .kpi-card { min-width: calc(50% - 8px) !important; }
 }
 
+/* =====================================================================
+   Overlay "Stiamo facendo la magia" (stile Apple Intelligence)
+   ===================================================================== */
+@property --magic-angle {
+    syntax: '<angle>';
+    initial-value: 0deg;
+    inherits: false;
+}
+#magic-overlay {
+    background: none !important;
+    animation: none !important;
+    min-height: 0;
+    margin: 24px 0;
+    overflow: visible;
+}
+.magic-card {
+    position: relative;
+    width: 100%;
+    max-width: 560px;
+    margin: 0 auto;
+    padding: 40px 32px 34px;
+    border-radius: 28px;
+    text-align: center;
+    overflow: hidden;
+    isolation: isolate;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0) 45%), #1a1a23;
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.12) inset, 0 30px 80px rgba(0, 0, 0, 0.55),
+                0 0 60px rgba(200, 36, 63, 0.18), 0 0 90px rgba(94, 92, 230, 0.12);
+}
+/* Bordo luminoso che ruota */
+.magic-card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    padding: 1.5px;
+    border-radius: inherit;
+    background: conic-gradient(from var(--magic-angle), #ff375f, #bf5af2, #5e5ce6, #64d2ff, #ff9f0a, #ff375f);
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    animation: magicSpin 4s linear infinite;
+    z-index: 1;
+    pointer-events: none;
+}
+/* Riflesso morbido del bordo verso l'interno */
+.magic-card::after {
+    content: "";
+    position: absolute;
+    inset: -40%;
+    background: conic-gradient(from var(--magic-angle), rgba(255, 55, 95, 0.16), rgba(191, 90, 242, 0.12), rgba(100, 210, 255, 0.12), rgba(255, 55, 95, 0.16));
+    filter: blur(40px);
+    animation: magicSpin 4s linear infinite;
+    z-index: -1;
+    pointer-events: none;
+}
+@keyframes magicSpin {
+    to { --magic-angle: 360deg; }
+}
+
+/* Sfera: colori che si mescolano dentro una goccia lucida */
+.magic-orb {
+    position: relative;
+    width: 96px;
+    height: 96px;
+    margin: 0 auto 22px;
+    border-radius: 50%;
+    overflow: hidden;
+    background: #14141b;
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.10), 0 12px 40px rgba(191, 90, 242, 0.35), 0 0 70px rgba(255, 55, 95, 0.25);
+    animation: orbBreath 3.2s ease-in-out infinite;
+}
+.orb-blob {
+    position: absolute;
+    width: 80%;
+    height: 80%;
+    border-radius: 50%;
+    filter: blur(14px);
+    mix-blend-mode: screen;
+}
+.orb-a { background: #ff375f; top: -10%; left: -12%; animation: orbA 5s ease-in-out infinite; }
+.orb-b { background: #5e5ce6; bottom: -15%; right: -10%; animation: orbB 6s ease-in-out infinite; }
+.orb-c { background: #64d2ff; top: 30%; left: 25%; width: 55%; height: 55%; animation: orbC 4.5s ease-in-out infinite; }
+.orb-gloss {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: radial-gradient(circle at 32% 24%, rgba(255, 255, 255, 0.55) 0%, rgba(255, 255, 255, 0.08) 22%, transparent 45%),
+                radial-gradient(circle at 70% 85%, rgba(255, 255, 255, 0.12) 0%, transparent 40%);
+    box-shadow: inset 0 -8px 18px rgba(0, 0, 0, 0.35), inset 0 2px 6px rgba(255, 255, 255, 0.25);
+}
+@keyframes orbBreath { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.06); } }
+@keyframes orbA { 0%, 100% { transform: translate(0, 0); } 50% { transform: translate(30%, 25%); } }
+@keyframes orbB { 0%, 100% { transform: translate(0, 0); } 50% { transform: translate(-35%, -20%); } }
+@keyframes orbC { 0%, 100% { transform: translate(0, 0) scale(1); } 33% { transform: translate(-30%, 20%) scale(1.2); } 66% { transform: translate(25%, -25%) scale(0.9); } }
+
+/* Scintille */
+.magic-stars {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+}
+.magic-spark {
+    position: absolute;
+    bottom: 8%;
+    border-radius: 50%;
+    background: var(--hue, #fff);
+    box-shadow: 0 0 8px var(--hue, #fff), 0 0 16px var(--hue, #fff);
+    opacity: 0;
+    animation: sparkRise linear forwards;
+}
+@keyframes sparkRise {
+    0%   { opacity: 0; transform: translate(0, 0) scale(0.6); }
+    15%  { opacity: 0.9; }
+    85%  { opacity: 0.5; }
+    100% { opacity: 0; transform: translate(var(--drift, 0), -230px) scale(1); }
+}
+
+/* Testi */
+#magic-overlay .magic-text {
+    position: relative;
+    z-index: 2;
+    font-size: 1.55rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    background: linear-gradient(90deg, #f5f5f7 0%, #f5f5f7 35%, #ffd1dc 45%, #ffffff 50%, #d9d2ff 55%, #f5f5f7 65%, #f5f5f7 100%);
+    background-size: 250% auto;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: shimmerText 3.2s linear infinite;
+}
+#magic-overlay .magic-sub {
+    position: relative;
+    z-index: 2;
+    margin-top: 8px;
+    min-height: 1.4em;
+    font-size: 0.92rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    animation: none;
+}
+#magic-overlay .magic-sub.step-in {
+    animation: stepIn 0.5s var(--sg-ease, cubic-bezier(0.32, 0.72, 0, 1));
+}
+@keyframes stepIn {
+    from { opacity: 0; transform: translateY(6px); filter: blur(3px); }
+    to   { opacity: 1; transform: none; filter: none; }
+}
+
+/* Barra di avanzamento indeterminata */
+.magic-progress {
+    position: relative;
+    z-index: 2;
+    width: 180px;
+    height: 4px;
+    margin: 18px auto 0;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.08);
+    overflow: hidden;
+}
+.magic-progress span {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 40%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, #ff375f, #bf5af2, #64d2ff);
+    animation: progressSlide 1.6s var(--sg-ease, ease-in-out) infinite;
+}
+@keyframes progressSlide {
+    0%   { left: -40%; }
+    100% { left: 100%; }
+}
+
+/* Tema chiaro */
+[data-theme="light"] .magic-card {
+    background: linear-gradient(180deg, #ffffff 0%, #f6f6f9 100%);
+    box-shadow: 0 1px 0 #fff inset, 0 24px 60px rgba(0, 0, 0, 0.12), 0 0 60px rgba(200, 36, 63, 0.10);
+}
+[data-theme="light"] #magic-overlay .magic-text {
+    background-image: linear-gradient(90deg, #1d1d1f 0%, #1d1d1f 35%, #c8243f 45%, #5e5ce6 55%, #1d1d1f 65%, #1d1d1f 100%);
+}
+[data-theme="light"] .magic-progress { background: rgba(0, 0, 0, 0.08); }
+
+@media (prefers-reduced-motion: reduce) {
+    .magic-card::before, .magic-card::after, .magic-orb, .orb-blob,
+    #magic-overlay .magic-text, .magic-progress span { animation: none !important; }
+    .magic-progress span { left: 30%; }
+}
+
 /* ---------- Accessibilità ---------- */
 @media (prefers-reduced-motion: reduce) {
     .tile-nav-thumb, .kpi-card, .btn { transition: none !important; }
