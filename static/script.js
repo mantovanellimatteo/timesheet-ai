@@ -626,7 +626,13 @@ function renderPresenceTile() {
         // 2. Ore Totali
         const tdTotal = document.createElement('td');
         tdTotal.className = 'col-hours';
-        tdTotal.innerHTML = `<strong>${u.total_hours.toFixed(2)}h</strong>`;
+        const totTitle = `Ore lavorate: ${u.total_hours}h` +
+            (u.out_of_hours ? ` (di cui ${u.out_of_hours}h fuori orario)` : '') +
+            (u.absence_hours ? ` · Assenze: ${u.absence_hours}h` : '') +
+            (u.extra_hours ? ` · Esubero: +${u.extra_hours}h` : '');
+        tdTotal.title = totTitle;
+        tdTotal.innerHTML = `<strong>${u.total_hours.toFixed(2)}h</strong>` +
+            (u.absence_hours ? `<div style="font-size:0.72rem; color:#60a5fa;">+${u.absence_hours}h assenza</div>` : '');
         tr.appendChild(tdTotal);
         
         // 3. Deficit Ore Mancanti
@@ -645,9 +651,11 @@ function renderPresenceTile() {
         tdStatus.className = 'col-status';
         const sc = u.status_counts || {};
         if (sc.missing > 0) {
-            tdStatus.innerHTML = `<span class="matrix-status-pill status-danger">🔴 ${sc.missing} gg assente</span>`;
+            tdStatus.innerHTML = `<span class="matrix-status-pill status-danger">🔴 ${sc.missing} gg mancanti</span>`;
         } else if (sc.partial > 0) {
             tdStatus.innerHTML = `<span class="matrix-status-pill status-warning">🟡 ${sc.partial} gg incompleti</span>`;
+        } else if (sc.over > 0) {
+            tdStatus.innerHTML = `<span class="matrix-status-pill status-warning" title="Ore in orario lavorativo oltre le 8h">🟠 ${sc.over} gg in esubero</span>`;
         } else {
             tdStatus.innerHTML = `<span class="matrix-status-pill status-ok">🟢 Regolare</span>`;
         }
@@ -665,12 +673,20 @@ function renderPresenceTile() {
             const tdDay = document.createElement('td');
             tdDay.className = 'col-day';
             const dInfo = u.days ? u.days[dayStr] : null;
+            const click = `onclick="filterByTechAndDate('${escapeHtml(u.user)}', '${dayStr}')"`;
+            const outNote = (dInfo && dInfo.out_of_hours) ? ` + ${dInfo.out_of_hours}h fuori orario (non conteggiate)` : '';
+            const absNote = (dInfo && dInfo.absence_hours) ? ` (di cui ${dInfo.absence_hours}h assenza)` : '';
             if (!dInfo || dInfo.status === 'missing') {
-                tdDay.innerHTML = `<span class="day-badge status-missing" onclick="filterByTechAndDate('${escapeHtml(u.user)}', '${dayStr}')" title="Nessuna ora registrata. Mancano 8h."><span>0.0h</span><span class="day-badge-sub">🔴 Assente</span></span>`;
+                tdDay.innerHTML = `<span class="day-badge status-missing" ${click} title="Nessuna ora in orario lavorativo. Mancano 8h.${outNote}"><span>0.0h</span><span class="day-badge-sub">🔴 Mancante</span></span>`;
             } else if (dInfo.status === 'partial') {
-                tdDay.innerHTML = `<span class="day-badge status-partial" onclick="filterByTechAndDate('${escapeHtml(u.user)}', '${dayStr}')" title="Registrate ${dInfo.hours}h su 8h. Mancano ${dInfo.missing_hours}h."><span>${dInfo.hours}h</span><span class="day-badge-sub">🟡 -${dInfo.missing_hours}h</span></span>`;
+                tdDay.innerHTML = `<span class="day-badge status-partial" ${click} title="Registrate ${dInfo.hours}h su 8h${absNote}. Mancano ${dInfo.missing_hours}h.${outNote}"><span>${dInfo.hours}h</span><span class="day-badge-sub">🟡 -${dInfo.missing_hours}h</span></span>`;
+            } else if (dInfo.status === 'absent') {
+                tdDay.innerHTML = `<span class="day-badge status-absent" ${click} title="Giornata coperta da assenza (${dInfo.absence_hours}h)"><span>${dInfo.hours}h</span><span class="day-badge-sub">🔵 Assenza</span></span>`;
+            } else if (dInfo.extra_hours > 0) {
+                tdDay.innerHTML = `<span class="day-badge status-over" ${click} title="Esubero: ${dInfo.hours}h in orario lavorativo${absNote}, +${dInfo.extra_hours}h oltre le 8h.${outNote}"><span>${dInfo.hours}h</span><span class="day-badge-sub">🟠 +${dInfo.extra_hours}h</span></span>`;
             } else {
-                tdDay.innerHTML = `<span class="day-badge status-ok" onclick="filterByTechAndDate('${escapeHtml(u.user)}', '${dayStr}')" title="Giornata regolare: ${dInfo.hours}h registrate"><span>${dInfo.hours}h</span><span class="day-badge-sub">🟢 OK</span></span>`;
+                const sub = dInfo.out_of_hours ? `🟢 OK +${dInfo.out_of_hours}h f.o.` : '🟢 OK';
+                tdDay.innerHTML = `<span class="day-badge status-ok" ${click} title="Giornata regolare: ${dInfo.hours}h${absNote}${outNote}"><span>${dInfo.hours}h</span><span class="day-badge-sub">${sub}</span></span>`;
             }
             tr.appendChild(tdDay);
         });
@@ -731,8 +747,12 @@ function renderAnalyticsTile() {
     const activeData = getActiveData();
     let totalOre = 0;
     let nonBillableOre = 0;
+    let absenceOre = 0;
+    let workedRows = 0;
     
     activeData.forEach(row => {
+        if (isAbsence(row)) { absenceOre += rowHours(row); return; }
+        workedRows++;
         let ore = 0;
         if ('Consuntivo Ore' in row) ore = safeFloatJS(row['Consuntivo Ore']);
         else if ('Ore' in row) ore = safeFloatJS(row['Ore']);
@@ -757,7 +777,7 @@ function renderAnalyticsTile() {
     const elCS = document.getElementById('kpi-context-switching');
     
     if (elTotali) elTotali.textContent = totalOre.toFixed(1);
-    if (elSub) elSub.textContent = `${activeData.length} registrazioni`;
+    if (elSub) elSub.textContent = `${workedRows} registrazioni` + (absenceOre > 0 ? ` · ${absenceOre.toFixed(1)}h assenze escluse` : '');
     if (elFatt) elFatt.textContent = billableOre.toFixed(1);
     if (elPercFatt) elPercFatt.textContent = `(${percBillable}% del totale)`;
     if (elNonFatt) elNonFatt.textContent = nonBillableOre.toFixed(1);
@@ -791,7 +811,7 @@ function updateQualityKPIs() {
     
     currentData.forEach(r => {
         const hasErr = !!r['_Errore_Logico'];
-        const hasWarn = !!r['_Avviso_IA'];
+        const hasWarn = !!r['_Avviso_IA'] || !!r['_Avviso'];
         if (hasErr) ruleErrors++;
         if (hasWarn) aiWarnings++;
         if (hasErr || hasWarn) flaggedRows++;
@@ -829,7 +849,7 @@ function renderResultsTable() {
     const filterUser = document.getElementById('filter-user-quality-select') ? document.getElementById('filter-user-quality-select').value : 'ALL';
     const searchQuery = document.getElementById('search-table-input') ? document.getElementById('search-table-input').value.toLowerCase().trim() : '';
 
-    const columns = Object.keys(currentData[0]).filter(c => c !== '_Errore_Logico' && c !== '_Avviso_IA');
+    const columns = Object.keys(currentData[0]).filter(c => !c.startsWith('_'));
     
     columns.forEach(col => {
         const th = document.createElement('th');
@@ -845,9 +865,12 @@ function renderResultsTable() {
         }
 
         const hasError = !!row['_Errore_Logico'];
-        const hasWarning = !!row['_Avviso_IA'];
+        const hasAiWarning = !!row['_Avviso_IA'];
+        const hasRuleWarning = !!row['_Avviso'];
+        const hasWarning = hasAiWarning || hasRuleWarning;
         const nbCat = getNonBillableCategory(row);
         const isNonBillable = nbCat !== null;
+        const absence = isAbsence(row);
 
         // Filtro Tipologia
         if (filterType === 'ALL_ISSUES') {
@@ -879,13 +902,24 @@ function renderResultsTable() {
             body.appendChild(trBand);
         }
 
-        // Render Warning Band
-        if (hasWarning) {
+        // Render Rule Warning Band (note mancanti, esuberi, fuori orario, stato, duplicati)
+        if (hasRuleWarning) {
             const trBand = document.createElement('tr');
             trBand.className = 'warning-band';
             const tdBand = document.createElement('td');
             tdBand.colSpan = columns.length;
-            tdBand.innerHTML = `<strong>⚠️ AVVISO IA:</strong> ${escapeHtml(row['_Avviso_IA'])}`;
+            tdBand.innerHTML = `<strong>⚠️ AVVISO:</strong> ${escapeHtml(row['_Avviso'])}`;
+            trBand.appendChild(tdBand);
+            body.appendChild(trBand);
+        }
+
+        // Render AI Warning Band
+        if (hasAiWarning) {
+            const trBand = document.createElement('tr');
+            trBand.className = 'warning-band';
+            const tdBand = document.createElement('td');
+            tdBand.colSpan = columns.length;
+            tdBand.innerHTML = `<strong>🤖 AVVISO IA:</strong> ${escapeHtml(row['_Avviso_IA'])}`;
             trBand.appendChild(tdBand);
             body.appendChild(trBand);
         }
@@ -901,6 +935,8 @@ function renderResultsTable() {
             const val = row[col];
             if (isNonBillable && (colLower.includes('gruppo') || colLower === 'tipo')) {
                 td.innerHTML = `${escapeHtml(val)} <span class="badge-non-billable" title="Voce non fatturabile (${escapeHtml(nbCat)})">Non Fatturabile</span>`;
+            } else if (absence && (colLower.includes('gruppo') || colLower === 'tipo')) {
+                td.innerHTML = `${escapeHtml(val)} <span class="badge-absence" title="Assenza: giustifica la giornata ma non conta come ore lavorate">Assenza</span>`;
             } else if (colLower.includes('responsabile') || colLower === 'tecnico') {
                 td.innerHTML = `<span class="team-user-badge" style="cursor:pointer;" onclick="filterByTech('${escapeHtml(val)}')">👤 ${escapeHtml(val)}</span>`;
             } else {
@@ -955,8 +991,23 @@ function safeFloatJS(val) {
 // 1. ICS Generali (es. IC-GENERALI, ICS Generali, IC Generali, ecc.)
 // 2. CLI Attività Commerciali (es. CLI ATTIVITA' COMMERCIALI, Attività Commerciali, ecc.)
 // 3. Formazione (es. Formazione, Corsi di Formazione, Formazione Interna, ecc.)
+function rowHours(row) {
+    if ('Consuntivo Ore' in row) return safeFloatJS(row['Consuntivo Ore']);
+    if ('Ore' in row) return safeFloatJS(row['Ore']);
+    return 1;
+}
+
+// Le assenze (ferie, malattia...) giustificano la giornata ma non sono ore lavorate
+function isAbsence(row) {
+    return !!row && row['_Categoria'] === 'Assenza';
+}
+
 function getNonBillableCategory(row) {
     if (!row) return null;
+    // Classificazione calcolata dal backend: Cliente / Interno / Assenza
+    if (row['_Categoria']) {
+        return row['_Categoria'] === 'Interno' ? (row['_Sottocategoria'] || 'Altre attività interne') : null;
+    }
     
     const candidates = [
         row['Gruppo Timesheet'],
@@ -1009,6 +1060,9 @@ function generateCharts(data, isExport = false) {
     const countAccount = {};
     let totalOreGruppo = 0;
     
+    // Le assenze non sono ore lavorate: escluse da grafici e KPI
+    data = data.filter(r => !isAbsence(r));
+
     // Variabili per i KPI (il Context Switching è calcolato dal backend)
     let totalHoursAll = 0;
     const totalInterventions = data.length;
@@ -1064,8 +1118,6 @@ function generateCharts(data, isExport = false) {
     if (elOreTot) elOreTot.textContent = totalHoursAll.toFixed(1);
     const elIntTot = document.getElementById('kpi-interventi-totali');
     if (elIntTot) elIntTot.textContent = totalInterventions;
-    const elIntSub = document.getElementById('kpi-interventi-sub');
-    if (elIntSub) elIntSub.textContent = `${totalInterventions} registrazioni`;
 
     // Popola KPI Ore Non Fatturabili
     const kpiNB = document.getElementById('kpi-ore-non-fatturabili');
@@ -1211,7 +1263,7 @@ function generateCharts(data, isExport = false) {
 
         currentData.forEach(r => {
             const u = getUserOfRow(r);
-            if (u && memberStats[u]) {
+            if (u && memberStats[u] && !isAbsence(r)) {
                 let ore = 0;
                 if ('Consuntivo Ore' in r) ore = safeFloatJS(r['Consuntivo Ore']);
                 else if ('Ore' in r) ore = safeFloatJS(r['Ore']);
@@ -1730,11 +1782,13 @@ function renderNonBillableModalTable() {
     const catStats = {
         'ICS Generali': { hours: 0, count: 0, class: 'ics' },
         'CLI Attività Commerciali': { hours: 0, count: 0, class: 'commercial' },
-        'Formazione': { hours: 0, count: 0, class: 'training' }
+        'Formazione': { hours: 0, count: 0, class: 'training' },
+        'Altre attività interne': { hours: 0, count: 0, class: 'other' }
     };
     
     let totalAllHours = 0;
     dataset.forEach(row => {
+        if (isAbsence(row)) return;
         let ore = 0;
         if ('Consuntivo Ore' in row) ore = safeFloatJS(row['Consuntivo Ore']);
         else if ('Ore' in row) ore = safeFloatJS(row['Ore']);
@@ -1826,6 +1880,7 @@ function renderNonBillableModalTable() {
             let catBadgeClass = 'commercial';
             if (item.cat === 'ICS Generali') catBadgeClass = 'ics';
             else if (item.cat === 'Formazione') catBadgeClass = 'training';
+            else if (item.cat === 'Altre attività interne') catBadgeClass = 'other';
             
             const tr = document.createElement('tr');
             let trHTML = `<td style="padding: 10px; border-bottom: 1px solid var(--border); white-space: nowrap; font-size: 0.85rem;">${escapeHtml(dateVal)}</td>`;

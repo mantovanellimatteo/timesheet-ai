@@ -206,6 +206,27 @@ Oppure usa il **Generatore IA** integrato: descrivi la regola in italiano (anche
 
 ---
 
+## 🗂️ Classificazione Attività e Controllo Presenze
+
+Ogni riga viene classificata in base al **Gruppo TimeSheet** (in mancanza, dalla Commessa):
+
+| Categoria | Regola | Conteggio |
+|---|---|---|
+| **Cliente** | Gruppo che inizia con `CLI` (escluse le attività commerciali) | Ore fatturabili |
+| **Interno** | ICS Generali, Formazione, CLI Attività Commerciali, Gestione, Infrastruttura e IT Interno, commesse `IC-*` / `FOR-*` | Ore non fatturabili |
+| **Assenza** | Gruppo `Assenze` o commesse `AFE` / `AMA` | Giustifica la giornata, **non** è ora lavorata |
+
+**Controllo giornaliero (8h):**
+- conta solo le ore con `Tipo Orario` = *Lavorativo* più le ore di assenza;
+- le ore fuori orario (*Fuori orario lavorativo*, *Feriale 22-00*, ...) sono riportate a parte e **non** coprono le 8h;
+- meno di 8h → *giornata incompleta* (errore); nessuna ora → *giornata mancante* (errore);
+- più di 8h in orario lavorativo → *esubero* (avviso: la giornata resta valida, si può lavorare su più clienti in parallelo);
+- giornata coperta solo da assenze → *assenza giustificata*.
+
+**Altri controlli automatici:** commessa mancante su attività cliente (errore), timesheet non confermato (`Stato TimeSheet` ≠ 80), nota mancante, possibili duplicati (stesso tecnico, giorno, commessa, fascia oraria e nota).
+
+---
+
 ## 📊 Metrica del Context Switching (CS)
 
 Il **Context Switching Medio** è un indicatore sintetico introdotto nella dashboard (KPI Cards) per monitorare il **livello di frammentazione del lavoro** e la dispersione delle risorse nel team.
@@ -215,13 +236,13 @@ L'indice valuta quanto ciascun collaboratore è costretto a saltare tra commesse
 
 1. **Raggruppamento Giornaliero**: i dati vengono aggregati per coppia `Utente` + `Data`.
 2. **Esclusioni**:
-   - Vengono escluse dal calcolo le registrazioni del gruppo **`IC-GENERALI`** (attività interne aziendali che non costituiscono un cambio di contesto cliente).
+   - Vengono considerate **solo le attività cliente** (Gruppo TimeSheet `CLI…`), raggruppate per Account: attività interne (ICS Generali, Formazione, Gestione, ...) e assenze non costituiscono un cambio di contesto cliente.
    - Vengono ignorate righe senza utente o data valida.
 
 ### Formula di Calcolo
 
 Per ogni giornata lavorativa di ciascun collaboratore:
-- $\text{Ore}_{\text{totali}}$ = somma delle ore lavorate nel giorno (al netto di `IC-GENERALI`).
+- $\text{Ore}_{\text{totali}}$ = somma delle ore lavorate nel giorno sulle attività cliente.
 - $\text{Ore}_{\max}$ = ore dedicate al cliente/commessa su cui l'utente ha speso più tempo nel giorno.
 
 Il **Context Switching giornaliero** è calcolato come:
