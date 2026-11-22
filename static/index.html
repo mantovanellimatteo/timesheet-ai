@@ -12,6 +12,7 @@
     <!-- Confetti -->
     <script src="vendor/confetti-1.6.0.browser.js"></script>
     <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="theme.css">
 </head>
 <body data-theme="dark">
     <div id="tsparticles"></div>
@@ -71,7 +72,7 @@
                 <!-- DASHBOARD RISULTATI A TILE MODULARI -->
                 <div id="results-container" class="hidden">
                     <!-- Top Bar con Info File ed Azioni Globali -->
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px; padding-bottom: 15px; border-bottom: 1px solid var(--border);">
+                    <div class="report-bar" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px; padding-bottom: 15px; border-bottom: 1px solid var(--border);">
                         <div>
                             <h3 id="report-title" style="margin: 0 0 4px 0; color: var(--text-primary); font-size: 1.25rem;">Esito Controllo Timesheet</h3>
                             <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
@@ -87,19 +88,20 @@
 
                     <!-- TILE SEGMENTED NAV BAR (Stile iOS) -->
                     <div class="tile-nav-bar">
+                        <span class="tile-nav-thumb" id="tile-nav-thumb"></span>
                         <button class="tile-tab-btn active" id="btn-tile-presence" onclick="switchTile('tile-presence')">
-                            <span class="tab-icon">🕒</span> 1. Controllo Presenza Ore
+                            <span class="tab-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span> 1. Controllo Presenza Ore
                             <span class="tile-badge-alert hidden" id="presence-badge-alert">0</span>
                         </button>
                         <button class="tile-tab-btn" id="btn-tile-analytics" onclick="switchTile('tile-analytics')">
-                            <span class="tab-icon">📊</span> 2. Analytics & Efficienza
+                            <span class="tab-icon"><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M8 16v-4"/><path d="M13 16V8"/><path d="M18 16v-7"/></svg></span> 2. Analytics & Efficienza
                         </button>
                         <button class="tile-tab-btn" id="btn-tile-quality" onclick="switchTile('tile-quality')">
-                            <span class="tab-icon">⚖️</span> 3. Controllo Logico & Note
+                            <span class="tab-icon"><svg viewBox="0 0 24 24"><path d="M12 3v18"/><path d="M5 21h14"/><path d="M4 7h16"/><path d="M7 7l-3 7a3 3 0 0 0 6 0z"/><path d="M17 7l-3 7a3 3 0 0 0 6 0z"/></svg></span> 3. Controllo Logico & Note
                             <span class="tile-badge-alert hidden" id="quality-badge-alert">0</span>
                         </button>
                         <button class="tile-tab-btn" id="btn-tile-clients" onclick="switchTile('tile-clients')">
-                            <span class="tab-icon">🏢</span> 4. Clienti & Commesse
+                            <span class="tab-icon"><svg viewBox="0 0 24 24"><path d="M6 21V4a1 1 0 0 1 1-1h7a1 1 0 0 1 1 1v17"/><path d="M15 9h3a1 1 0 0 1 1 1v11"/><path d="M3 21h18"/><path d="M9 7h2M9 11h2M9 15h2"/></svg></span> 4. Clienti & Commesse
                         </button>
                     </div>
 
@@ -339,7 +341,7 @@
         <div class="modal-card">
             <button class="close-btn" onclick="closeModal()" title="Chiudi (ESC)" aria-label="Chiudi">&times;</button>
             <div class="modal-header">
-                <h3 id="modal-title" style="margin: 0; color: var(--accent); font-family: 'Nunito', sans-serif;">Dettagli Gruppo</h3>
+                <h3 id="modal-title" style="margin: 0; color: var(--accent); font-family: var(--font-ui);">Dettagli Gruppo</h3>
             </div>
             <div class="modal-body">
                 <table style="border-collapse: collapse; text-align: left; font-size: 0.9rem; width: 100%; min-width: 520px;">
@@ -358,7 +360,7 @@
             <button class="close-btn" onclick="closeNonBillableModal()" title="Chiudi (ESC)" aria-label="Chiudi">&times;</button>
             <div class="modal-header">
                 <div style="flex: 1; min-width: 260px;">
-                    <h3 id="nb-modal-title" style="margin: 0 0 4px 0; color: #f59e0b; font-family: 'Nunito', sans-serif; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                    <h3 id="nb-modal-title" style="margin: 0 0 4px 0; color: #f59e0b; font-family: var(--font-ui); display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
                         <span>⏱️ Dettaglio Ore Non Fatturabili</span>
                         <span id="nb-modal-badge" style="font-size: 0.8rem; padding: 2px 10px; border-radius: 999px; background: rgba(245, 158, 11, 0.18); border: 1px solid rgba(245, 158, 11, 0.35); color: #f59e0b; font-weight: 700;"></span>
                     </h3>

@@ -27,6 +27,7 @@ function toggleTheme() {
     document.body.setAttribute('data-theme', newTheme);
     localStorage.setItem('theme', newTheme);
     updateThemeButton();
+    positionTabThumb();
 }
 
 function updateThemeButton() {
@@ -327,6 +328,7 @@ function startAnalysis() {
             document.getElementById('drop-zone-text').textContent = "Report generato. Chiudilo per caricarne uno nuovo.";
             
             document.getElementById('results-container').classList.remove('hidden');
+            requestAnimationFrame(positionTabThumb);
             document.getElementById('results-container').scrollIntoView({ behavior: 'smooth', block: 'start' });
         } else {
             alert('Errore: ' + (data.detail || 'Operazione fallita'));
@@ -525,6 +527,7 @@ function switchTile(tileId) {
     
     const targetBtn = document.getElementById('btn-' + tileId);
     if (targetBtn) targetBtn.classList.add('active');
+    positionTabThumb();
     
     if (tileId === 'tile-analytics') {
         if (chartTeam) chartTeam.resize();
@@ -532,6 +535,16 @@ function switchTile(tileId) {
         if (chartAccount) chartAccount.resize();
     }
 }
+
+// Pillola del segmented control che scorre sotto il tab attivo
+function positionTabThumb() {
+    const thumb = document.getElementById('tile-nav-thumb');
+    const active = document.querySelector('.tile-tab-btn.active');
+    if (!thumb || !active) return;
+    thumb.style.width = active.offsetWidth + 'px';
+    thumb.style.transform = `translateX(${active.offsetLeft}px)`;
+}
+window.addEventListener('resize', positionTabThumb);
 
 function updateDashboardView() {
     renderPresenceTile();
@@ -1361,7 +1374,7 @@ function generateCharts(data, isExport = false) {
                 plugins: {
                     legend: {
                         position: 'right',
-                        labels: { color: textColor, font: { family: 'Nunito', size: 11 } }
+                        labels: { color: textColor, font: { family: getComputedStyle(document.documentElement).getPropertyValue('--font-ui').trim(), size: 11 } }
                     },
                     tooltip: {
                         callbacks: {
@@ -1400,11 +1413,11 @@ function generateCharts(data, isExport = false) {
                 scales: {
                     y: { 
                         beginAtZero: true, 
-                        ticks: { color: textColor, precision: 0, font: { family: 'Nunito' } },
+                        ticks: { color: textColor, precision: 0, font: { family: getComputedStyle(document.documentElement).getPropertyValue('--font-ui').trim() } },
                         grid: { color: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }
                     },
                     x: { 
-                        ticks: { color: textColor, font: { family: 'Nunito', size: 10 } },
+                        ticks: { color: textColor, font: { family: getComputedStyle(document.documentElement).getPropertyValue('--font-ui').trim(), size: 10 } },
                         grid: { display: false }
                     }
                 },
@@ -1508,7 +1521,7 @@ function generateCharts(data, isExport = false) {
                     x: {
                         stacked: true,
                         beginAtZero: true,
-                        ticks: { color: textColor, font: { family: 'Nunito' } },
+                        ticks: { color: textColor, font: { family: getComputedStyle(document.documentElement).getPropertyValue('--font-ui').trim() } },
                         grid: { color: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }
                     },
                     y: {
@@ -1516,7 +1529,7 @@ function generateCharts(data, isExport = false) {
                         ticks: { 
                             autoSkip: false,
                             color: textColor, 
-                            font: { family: 'Nunito', size: 11, weight: '600' }
+                            font: { family: getComputedStyle(document.documentElement).getPropertyValue('--font-ui').trim(), size: 11, weight: '600' }
                         },
                         grid: { display: false }
                     }
@@ -1536,7 +1549,7 @@ function generateCharts(data, isExport = false) {
                 plugins: {
                     legend: {
                         position: 'top',
-                        labels: { color: textColor, font: { family: 'Nunito', size: 11 } }
+                        labels: { color: textColor, font: { family: getComputedStyle(document.documentElement).getPropertyValue('--font-ui').trim(), size: 11 } }
                     },
                     tooltip: {
                         callbacks: {

@@ -1,4 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;800&display=swap');
 
 :root {
     --bg-color: #121214;
@@ -37,7 +36,7 @@
     box-sizing: border-box;
     margin: 0;
     padding: 0;
-    font-family: 'Nunito', sans-serif;
+    font-family: var(--font-ui);
 }
 
 /* iOS-style Smooth Minimal Scrollbars */

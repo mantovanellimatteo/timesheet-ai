@@ -1,0 +1,341 @@
+/* =====================================================================
+   Tema "Solid Glass" (scuro)
+   Richiama il liquid glass di iOS con colori pieni: superfici a strati,
+   riflesso sfumato in alto, bordo luminoso e ombre morbide. Nessun
+   backdrop-filter: più leggero e compatibile con l'export PDF.
+   Si applica solo a [data-theme="dark"]; il tema chiaro resta invariato
+   (l'export PDF passa temporaneamente al tema chiaro).
+   ===================================================================== */
+
+:root {
+    --font-ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Segoe UI Variable", "Segoe UI", Inter, Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+* {
+    font-family: var(--font-ui);
+}
+
+/* Numeri allineati ovunque ci sono ore e percentuali */
+.kpi-value, .presence-matrix td, .clients-table td, .day-badge, #results-table td {
+    font-variant-numeric: tabular-nums;
+}
+
+[data-theme="dark"] {
+    --bg-color: #0b0b10;
+    --sg-surface-0: #101016;          /* incassi (barra tab, input) */
+    --sg-surface-1: #15151c;          /* contenitore principale */
+    --sg-surface-2: #1c1c25;          /* card */
+    --sg-surface-3: #262631;          /* elementi in rilievo (thumb, bottoni) */
+    --sg-surface-4: #30303d;
+    --sg-stroke: rgba(255, 255, 255, 0.07);
+    --sg-stroke-strong: rgba(255, 255, 255, 0.12);
+    --sg-highlight: rgba(255, 255, 255, 0.10);
+    --sg-sheen: linear-gradient(180deg, rgba(255, 255, 255, 0.055) 0%, rgba(255, 255, 255, 0) 42%);
+    --sg-shadow: 0 1px 0 var(--sg-highlight) inset, 0 -1px 0 rgba(0, 0, 0, 0.35) inset, 0 12px 32px rgba(0, 0, 0, 0.38);
+    --sg-shadow-hover: 0 1px 0 rgba(255, 255, 255, 0.14) inset, 0 -1px 0 rgba(0, 0, 0, 0.35) inset, 0 18px 40px rgba(0, 0, 0, 0.45);
+    --sg-radius-xl: 28px;
+    --sg-radius-lg: 22px;
+    --sg-radius-md: 16px;
+    --sg-ease: cubic-bezier(0.32, 0.72, 0, 1);    /* curva "molla" stile iOS */
+
+    --text-primary: #f5f5f7;
+    --text-secondary: #9a9aa8;
+    --accent: #c8243f;
+    --accent-hover: #a81d35;
+    --success: #30d158;               /* colori di sistema iOS (dark) */
+    --warning: #ff9f0a;
+    --error: #ff453a;
+    --border: var(--sg-stroke);
+    --glass-border: var(--sg-stroke);
+    --card-bg: var(--sg-surface-2);
+    --bg-card: var(--sg-surface-2);
+    --input-bg: var(--sg-surface-0);
+}
+
+/* ---------- Sfondo: aloni di colore fissi e morbidi ---------- */
+body[data-theme="dark"] {
+    background:
+        radial-gradient(1100px 620px at 8% -12%, rgba(200, 36, 63, 0.20), transparent 62%),
+        radial-gradient(900px 560px at 102% 2%, rgba(94, 92, 230, 0.15), transparent 60%),
+        radial-gradient(1000px 700px at 50% 118%, rgba(10, 132, 255, 0.10), transparent 62%),
+        var(--bg-color);
+    background-attachment: fixed;
+}
+[data-theme="dark"] #tsparticles {
+    opacity: 0.22;
+}
+
+/* ---------- Contenitore principale ---------- */
+[data-theme="dark"] .glass-container {
+    background: var(--sg-sheen), var(--sg-surface-1);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    border: 1px solid var(--sg-stroke);
+    border-radius: var(--sg-radius-xl);
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.08) inset, 0 40px 100px rgba(0, 0, 0, 0.6);
+}
+
+/* ---------- Header compatto: logo a sinistra, titolo e sottotitolo ---------- */
+[data-theme="dark"] header {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    grid-template-rows: auto auto;
+    column-gap: 16px;
+    align-items: center;
+    text-align: left;
+    margin-bottom: 26px;
+}
+[data-theme="dark"] header .logo {
+    grid-row: 1 / span 2;
+    grid-column: 1;
+    max-height: 44px;
+    margin: 0;
+}
+[data-theme="dark"] header h1 {
+    grid-column: 2;
+    font-size: 1.45rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin: 0;
+    color: var(--text-primary);
+}
+[data-theme="dark"] header p {
+    grid-column: 2;
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+[data-theme="dark"] .theme-toggle {
+    position: static;
+    grid-column: 3;
+    grid-row: 1 / span 2;
+    background: var(--sg-sheen), var(--sg-surface-3);
+    border: 1px solid var(--sg-stroke);
+    box-shadow: var(--sg-shadow);
+    border-radius: 999px;
+    padding: 8px 14px;
+    font-weight: 600;
+    font-size: 0.85rem;
+}
+[data-theme="dark"] .theme-toggle:hover {
+    background: var(--sg-sheen), var(--sg-surface-4);
+    color: var(--text-primary);
+}
+
+/* ---------- Superfici "card" ---------- */
+[data-theme="dark"] .kpi-card,
+[data-theme="dark"] .chart-card,
+[data-theme="dark"] .presence-matrix-wrapper,
+[data-theme="dark"] .clients-table-wrapper,
+[data-theme="dark"] .settings,
+[data-theme="dark"] .upload-zone,
+[data-theme="dark"] #team-selector-container,
+[data-theme="dark"] .report-bar {
+    background: var(--sg-sheen), var(--sg-surface-2) !important;
+    border: 1px solid var(--sg-stroke) !important;
+    box-shadow: var(--sg-shadow) !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+[data-theme="dark"] .kpi-card,
+[data-theme="dark"] .chart-card,
+[data-theme="dark"] .presence-matrix-wrapper,
+[data-theme="dark"] .clients-table-wrapper,
+[data-theme="dark"] #team-selector-container {
+    border-radius: var(--sg-radius-lg) !important;
+}
+[data-theme="dark"] .settings {
+    border-radius: var(--sg-radius-md) !important;
+}
+[data-theme="dark"] .upload-zone {
+    border-radius: var(--sg-radius-xl) !important;
+    border: 1px dashed rgba(255, 255, 255, 0.14) !important;
+}
+
+/* ---------- KPI ---------- */
+[data-theme="dark"] .kpi-card {
+    text-align: left !important;
+    padding: 18px 20px !important;
+    transition: transform 0.35s var(--sg-ease), box-shadow 0.35s var(--sg-ease);
+}
+[data-theme="dark"] .kpi-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--sg-shadow-hover) !important;
+}
+[data-theme="dark"] .kpi-card-clickable:hover {
+    border-color: rgba(255, 159, 10, 0.45) !important;
+}
+[data-theme="dark"] .kpi-card .kpi-label {
+    color: var(--text-secondary) !important;
+    font-size: 0.72rem !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.06em !important;
+}
+[data-theme="dark"] .kpi-card .kpi-value {
+    font-size: 2.1rem !important;
+    font-weight: 700 !important;
+    letter-spacing: -0.03em;
+    line-height: 1.15;
+}
+[data-theme="dark"] .kpi-card .kpi-value + span {
+    font-weight: 500 !important;
+}
+
+/* Valori neutri (conteggi, totali): niente rosso accento, che sembra un errore */
+[data-theme="dark"] #kpi-ore-totali,
+[data-theme="dark"] #kpi-presence-users {
+    color: var(--text-primary) !important;
+}
+
+/* ---------- Barra report (file, periodo, azioni) ---------- */
+[data-theme="dark"] .report-bar {
+    position: sticky;
+    top: 12px;
+    z-index: 40;
+    padding: 14px 18px !important;
+    border-radius: var(--sg-radius-lg) !important;
+    margin-bottom: 18px !important;
+    background: var(--sg-sheen), rgba(28, 28, 37, 0.97) !important;
+}
+[data-theme="dark"] #report-period-badge {
+    background: var(--sg-surface-0) !important;
+    border: 1px solid var(--sg-stroke);
+}
+
+/* ---------- Segmented control con thumb che scorre ---------- */
+[data-theme="dark"] .tile-nav-bar {
+    position: relative;
+    background: var(--sg-surface-0);
+    border: 1px solid var(--sg-stroke);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.5) inset, 0 1px 0 rgba(255, 255, 255, 0.04);
+    border-radius: 20px;
+    padding: 5px;
+    gap: 4px;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+}
+.tile-nav-thumb {
+    display: none;
+}
+[data-theme="dark"] .tile-nav-thumb {
+    display: block;
+    position: absolute;
+    top: 5px;
+    bottom: 5px;
+    left: 0;
+    width: 0;
+    border-radius: 15px;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.10) 0%, rgba(255, 255, 255, 0.02) 55%), var(--sg-surface-3);
+    border: 1px solid var(--sg-stroke-strong);
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.16) inset, 0 6px 18px rgba(0, 0, 0, 0.45);
+    transition: transform 0.45s var(--sg-ease), width 0.45s var(--sg-ease);
+    pointer-events: none;
+    z-index: 0;
+}
+[data-theme="dark"] .tile-tab-btn {
+    z-index: 1;
+    border-radius: 15px;
+    font-weight: 600;
+    font-size: 0.92rem;
+    padding: 11px 16px;
+    transition: color 0.3s var(--sg-ease);
+}
+[data-theme="dark"] .tile-tab-btn:hover {
+    background: transparent;
+    color: var(--text-primary);
+}
+[data-theme="dark"] .tile-tab-btn.active {
+    background: transparent;
+    box-shadow: none;
+    color: var(--text-primary) !important;
+}
+[data-theme="dark"] .tile-tab-btn.active .tab-icon {
+    color: var(--accent);
+}
+[data-theme="dark"] .tile-tab-btn.active .tile-badge-alert {
+    background: var(--error);
+    color: #fff;
+}
+[data-theme="dark"] .tile-badge-alert {
+    background: var(--error);
+    box-shadow: none;
+    font-weight: 700;
+}
+
+/* Icone vettoriali (al posto delle emoji nei tab) */
+.tab-icon svg {
+    width: 18px;
+    height: 18px;
+    display: block;
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+.tab-icon {
+    display: inline-flex;
+}
+
+/* ---------- Bottoni a pillola ---------- */
+[data-theme="dark"] .btn {
+    border-radius: 999px;
+    font-weight: 600;
+    transition: transform 0.3s var(--sg-ease), box-shadow 0.3s var(--sg-ease), background 0.2s;
+}
+[data-theme="dark"] .btn.primary {
+    background: linear-gradient(180deg, #d72d4a 0%, #b01e37 100%);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.28) inset, 0 8px 22px rgba(200, 36, 63, 0.35);
+}
+[data-theme="dark"] .btn.primary:hover {
+    background: linear-gradient(180deg, #e0344f 0%, #b9213b 100%);
+}
+[data-theme="dark"] .btn.secondary {
+    background: var(--sg-sheen), var(--sg-surface-3);
+    border: 1px solid var(--sg-stroke);
+    box-shadow: var(--sg-shadow);
+}
+[data-theme="dark"] .btn.secondary:hover {
+    background: var(--sg-sheen), var(--sg-surface-4);
+}
+
+/* ---------- Input e select ---------- */
+[data-theme="dark"] select,
+[data-theme="dark"] input[type="text"] {
+    background: var(--sg-surface-0) !important;
+    border: 1px solid var(--sg-stroke-strong) !important;
+    border-radius: 12px !important;
+    color: var(--text-primary) !important;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.5) inset;
+}
+
+/* ---------- Matrice presenze: righe pulite ---------- */
+[data-theme="dark"] .presence-matrix th {
+    background: transparent;
+    color: var(--text-secondary);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+}
+[data-theme="dark"] .presence-matrix td {
+    border-color: rgba(255, 255, 255, 0.045);
+}
+[data-theme="dark"] .presence-matrix tbody tr {
+    transition: background 0.2s;
+}
+[data-theme="dark"] .presence-matrix tbody tr:hover {
+    background: rgba(255, 255, 255, 0.03);
+}
+[data-theme="dark"] .day-badge {
+    border-radius: 12px;
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06) inset;
+}
+[data-theme="dark"] .mail-btn {
+    background: var(--sg-surface-3);
+    border-color: var(--sg-stroke);
+    border-radius: 999px;
+}
+
+/* ---------- Accessibilità ---------- */
+@media (prefers-reduced-motion: reduce) {
+    .tile-nav-thumb, .kpi-card, .btn { transition: none !important; }
+}
