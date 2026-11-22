@@ -657,7 +657,7 @@ function renderPresenceTile() {
         const tdCS = document.createElement('td');
         tdCS.className = 'col-cs';
         const cs = u.context_switching || {};
-        tdCS.innerHTML = `<span class="context-switching-pill level-${cs.level || 'low'}" title="${cs.total_unique_accounts || 0} commesse/account distinti">🔀 ${cs.avg_accounts_per_day || 0}/gg</span>`;
+        tdCS.innerHTML = `<span class="context-switching-pill level-${cs.level || 'low'}" title="${cs.avg_accounts_per_day || 0} account/giorno in media, ${cs.total_unique_accounts || 0} account distinti">🔀 ${(cs.percent || 0).toFixed(1)}%</span>`;
         tr.appendChild(tdCS);
         
         // Giorni
@@ -763,17 +763,20 @@ function renderAnalyticsTile() {
     if (elNonFatt) elNonFatt.textContent = nonBillableOre.toFixed(1);
     if (elPercNonFatt) elPercNonFatt.textContent = `(${percNonBillable}% del totale)`;
     
-    // Context Switching KPI
+    // Context Switching KPI (calcolato dal backend: media di 1 - ore_max/ore_tot per giornata)
     let csVal = 0;
     if (selectedTeamMember === 'ALL' && currentPresenceSummary && currentPresenceSummary.global_metrics) {
         csVal = currentPresenceSummary.global_metrics.avg_context_switching || 0;
     } else if (currentPresenceSummary && currentPresenceSummary.users) {
         const uObj = currentPresenceSummary.users.find(u => u.user === selectedTeamMember);
         if (uObj && uObj.context_switching) {
-            csVal = uObj.context_switching.avg_accounts_per_day || 0;
+            csVal = uObj.context_switching.percent || 0;
         }
     }
-    if (elCS) elCS.textContent = csVal.toFixed(1);
+    if (elCS) {
+        elCS.textContent = csVal.toFixed(1) + '%';
+        elCS.style.color = csColor(csVal);
+    }
     
     generateCharts(activeData);
 }
@@ -931,6 +934,13 @@ const smeupPalette = [
     '#F44336', '#9E9E9E'
 ];
 
+// Soglie Context Switching: <=50% verde, <=70% ambra, >70% rosso (allineate al backend)
+function csColor(val) {
+    if (val <= 50) return 'var(--success)';
+    if (val <= 70) return '#f59e0b';
+    return '#ef4444';
+}
+
 function safeFloatJS(val) {
     if (!val) return 0;
     if (typeof val === 'string') {
@@ -999,10 +1009,9 @@ function generateCharts(data, isExport = false) {
     const countAccount = {};
     let totalOreGruppo = 0;
     
-    // Variabili per i KPI e il Context Switching
+    // Variabili per i KPI (il Context Switching è calcolato dal backend)
     let totalHoursAll = 0;
     const totalInterventions = data.length;
-    const dailyUserWork = {}; // Raggruppamento per "Utente|Data" per il CS
 
     // Tracking ore non fatturabili (ICS Generali, CLI Attività Commerciali, Formazione)
     let totalNonBillableHours = 0;
@@ -1048,49 +1057,7 @@ function generateCharts(data, isExport = false) {
             account = String(account).trim();
             if (account !== '') countAccount[account] = (countAccount[account] || 0) + 1;
         }
-
-        // Estrai Utente e Data per calcolare il Context Switching
-        let utente = getUserOfRow(row) || 'Sconosciuto';
-
-        let dataVal = 'Sconosciuta';
-        if ('Data' in row) dataVal = row['Data'];
-        else if ('Giorno' in row) dataVal = row['Giorno'];
-        else if ('Data Evasione' in row) dataVal = row['Data Evasione'];
-        dataVal = String(dataVal || '').trim();
-
-        // Calcola il CS solo per righe diverse da attività generali interne
-        const isInternalGeneral = gruppo === 'IC-GENERALI' || gruppo === 'ICS Generali' || (nbCat === 'ICS Generali');
-        if (!isInternalGeneral && utente !== 'Sconosciuto' && dataVal !== 'Sconosciuta') {
-            const key = `${utente}|${dataVal}`;
-            if (!dailyUserWork[key]) {
-                dailyUserWork[key] = { total: 0, accounts: {} };
-            }
-            dailyUserWork[key].accounts[account] = (dailyUserWork[key].accounts[account] || 0) + ore;
-            dailyUserWork[key].total += ore;
-        }
     });
-
-    // Calcola il Context Switching Medio
-    let csSum = 0;
-    let csCount = 0;
-
-    for (const key in dailyUserWork) {
-        const dayData = dailyUserWork[key];
-        if (dayData.total > 0) {
-            let maxHoursOnSingleAccount = 0;
-            for (const acc in dayData.accounts) {
-                if (dayData.accounts[acc] > maxHoursOnSingleAccount) {
-                    maxHoursOnSingleAccount = dayData.accounts[acc];
-                }
-            }
-            // CS% = (1 - (ore_max_cliente / ore_totali_giorno))
-            const cs = 1 - (maxHoursOnSingleAccount / dayData.total);
-            csSum += cs;
-            csCount++;
-        }
-    }
-
-    const avgCS = csCount > 0 ? (csSum / csCount) * 100 : 0;
 
     // Popola le KPI Cards nel DOM se presenti
     const elOreTot = document.getElementById('kpi-ore-totali');
@@ -1099,18 +1066,6 @@ function generateCharts(data, isExport = false) {
     if (elIntTot) elIntTot.textContent = totalInterventions;
     const elIntSub = document.getElementById('kpi-interventi-sub');
     if (elIntSub) elIntSub.textContent = `${totalInterventions} registrazioni`;
-
-    const kpiCS = document.getElementById('kpi-context-switching');
-    kpiCS.textContent = avgCS.toFixed(1) + '%';
-    
-    // Applica colore in base alle soglie (Verde <= 50%, Giallo <= 70%, Rosso > 70%)
-    if (avgCS <= 50) {
-        kpiCS.style.color = 'var(--success)';
-    } else if (avgCS <= 70) {
-        kpiCS.style.color = '#f59e0b'; // Amber/Yellow
-    } else {
-        kpiCS.style.color = '#ef4444'; // Red
-    }
 
     // Popola KPI Ore Non Fatturabili
     const kpiNB = document.getElementById('kpi-ore-non-fatturabili');
@@ -1461,6 +1416,9 @@ function loadRules() {
         currentRules.forEach(rule => {
             const li = document.createElement('li');
             li.style.opacity = rule.is_active ? '1' : '0.5';
+            const invalidNote = rule.validation_error
+                ? `<div style="font-size:0.8rem; color:#f59e0b; margin-top:4px;">⚠️ Regola non valida: ${escapeHtml(rule.validation_error)}</div>`
+                : '';
             
             li.innerHTML = `
                 <div style="flex:1; padding-right: 15px;">
@@ -1469,12 +1427,13 @@ function loadRules() {
                             <input type="checkbox" onchange="toggleRule(${rule.id}, this.checked)" ${rule.is_active ? 'checked' : ''}>
                             <span class="slider round"></span>
                         </label>
-                        <strong style="color: var(--accent); text-decoration: ${rule.is_active ? 'none' : 'line-through'};">${rule.rule_name}</strong>
+                        <strong style="color: var(--accent); text-decoration: ${rule.is_active ? 'none' : 'line-through'};">${escapeHtml(rule.rule_name)}</strong>
                     </div>
                     <div style="font-family: monospace; font-size:0.85rem; color: var(--text-secondary); margin: 5px 0; background: rgba(0,0,0,0.3); padding: 5px; border-radius: 4px;">
-                        ${rule.expression}
+                        ${escapeHtml(rule.expression)}
                     </div>
-                    <div style="font-size:0.85rem; color: #fca5a5;">Errore se vero: ${rule.error_message}</div>
+                    <div style="font-size:0.85rem; color: #fca5a5;">Errore se vero: ${escapeHtml(rule.error_message)}</div>
+                    ${invalidNote}
                 </div>
                 <div style="display: flex; flex-direction: column; gap: 5px;">
                     <button class="btn secondary" style="padding: 5px 10px; font-size: 0.8rem;" onclick="editRule(${rule.id})">Modifica</button>
@@ -1483,6 +1442,24 @@ function loadRules() {
             `;
             list.appendChild(li);
         });
+    });
+}
+
+// Esegue una chiamata alle API regole mostrando l'eventuale errore restituito dal server
+function ruleRequest(url, method, payload) {
+    const opts = { method };
+    if (payload) {
+        opts.headers = { 'Content-Type': 'application/json' };
+        opts.body = JSON.stringify(payload);
+    }
+    return fetch(url, opts).then(async res => {
+        if (!res.ok) {
+            let detail = `Errore HTTP ${res.status}`;
+            try { detail = (await res.json()).detail || detail; } catch (e) {}
+            alert(detail);
+            throw new Error(detail);
+        }
+        return res.json();
     });
 }
 
@@ -1499,25 +1476,17 @@ function addRule() {
         const existing = currentRules.find(r => r.id === editingId);
         if (existing) payload.is_active = existing.is_active;
 
-        fetch(`/api/rules/${editingId}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        }).then(() => {
+        ruleRequest(`/api/rules/${editingId}`, 'PUT', payload).then(() => {
             editingId = null;
             document.getElementById('btn-save-rule').textContent = "Salva Regola";
             resetRuleForm();
             loadRules();
-        });
+        }).catch(() => {});
     } else {
-        fetch('/api/rules', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        }).then(() => {
+        ruleRequest('/api/rules', 'POST', payload).then(() => {
             resetRuleForm();
             loadRules();
-        });
+        }).catch(() => {});
     }
 }
 
@@ -1552,15 +1521,11 @@ function toggleRule(id, isActive) {
         is_active: isActive
     };
 
-    fetch(`/api/rules/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-    }).then(() => loadRules());
+    ruleRequest(`/api/rules/${id}`, 'PUT', payload).finally(() => loadRules()).catch(() => {});
 }
 
 function deleteRule(id) {
-    fetch(`/api/rules/${id}`, { method: 'DELETE' }).then(() => loadRules());
+    ruleRequest(`/api/rules/${id}`, 'DELETE').finally(() => loadRules()).catch(() => {});
 }
 
 
@@ -1583,6 +1548,9 @@ function generateWithAI() {
     .then(data => {
         if (data.status === 'success') {
             document.getElementById('r-expr').value = data.expression;
+            if (data.validation_error) {
+                alert("Attenzione: l'espressione generata non supera la validazione di sicurezza e non potrà essere salvata così com'è.\n\n" + data.validation_error);
+            }
             // Scroll to the expression box
             document.getElementById('r-expr').scrollIntoView({ behavior: 'smooth', block: 'center' });
         } else {
