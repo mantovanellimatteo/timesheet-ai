@@ -1,3 +1,46 @@
+// ===== ICONE VETTORIALI (stile SF Symbols / Lucide) =====
+const ICONS = {
+    "refresh": "<path d=\"M3 12a9 9 0 0 1 15-6.7L21 8\"/><path d=\"M21 3v5h-5\"/><path d=\"M21 12a9 9 0 0 1-15 6.7L3 16\"/><path d=\"M3 21v-5h5\"/>",
+    "download": "<path d=\"M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z\"/><path d=\"M14 3v6h6\"/><path d=\"M12 12v6\"/><path d=\"m9 15 3 3 3-3\"/>",
+    "file": "<path d=\"M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z\"/><path d=\"M14 3v6h6\"/><path d=\"M8 13h8M8 17h5\"/>",
+    "sparkles": "<path d=\"M12 3l1.8 4.7 4.7 1.8-4.7 1.8L12 16l-1.8-4.7-4.7-1.8 4.7-1.8z\"/><path d=\"M19 15l.8 2.2 2.2.8-2.2.8L19 21l-.8-2.2-2.2-.8 2.2-.8z\"/>",
+    "calendar": "<rect x=\"3\" y=\"5\" width=\"18\" height=\"16\" rx=\"2\"/><path d=\"M16 3v4M8 3v4M3 10h18\"/>",
+    "hint": "<path d=\"M9 18h6M10 21h4\"/><path d=\"M12 3a6 6 0 0 0-4 10.5c.7.7 1 1.5 1 2.5h6c0-1 .3-1.8 1-2.5A6 6 0 0 0 12 3z\"/>",
+    "building": "<path d=\"M6 21V4a1 1 0 0 1 1-1h7a1 1 0 0 1 1 1v17\"/><path d=\"M15 9h3a1 1 0 0 1 1 1v11\"/><path d=\"M3 21h18\"/><path d=\"M9 7h2M9 11h2M9 15h2\"/>",
+    "users": "<path d=\"M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2\"/><circle cx=\"9\" cy=\"7\" r=\"4\"/><path d=\"M22 21v-2a4 4 0 0 0-3-3.9\"/><path d=\"M16 3.1a4 4 0 0 1 0 7.8\"/>",
+    "user": "<circle cx=\"12\" cy=\"8\" r=\"4\"/><path d=\"M4 21a8 8 0 0 1 16 0\"/>",
+    "mail": "<rect x=\"3\" y=\"5\" width=\"18\" height=\"14\" rx=\"2\"/><path d=\"m3 7 9 6 9-6\"/>",
+    "shuffle": "<path d=\"M16 3h5v5\"/><path d=\"M4 20 21 3\"/><path d=\"M21 16v5h-5\"/><path d=\"M15 15l6 6\"/><path d=\"M4 4l5 5\"/>",
+    "trend": "<path d=\"M3 17l6-6 4 4 8-8\"/><path d=\"M14 7h7v7\"/>",
+    "clock": "<circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M12 7v5l3 2\"/>",
+    "alert": "<path d=\"M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z\"/><path d=\"M12 9v4M12 17h.01\"/>",
+    "error": "<path d=\"M7.9 2h8.2L22 7.9v8.2L16.1 22H7.9L2 16.1V7.9z\"/><path d=\"m15 9-6 6M9 9l6 6\"/>",
+    "bot": "<rect x=\"4\" y=\"8\" width=\"16\" height=\"12\" rx=\"3\"/><path d=\"M12 4v4M9 13h.01M15 13h.01M8 4h8\"/>",
+    "copy": "<rect x=\"8\" y=\"3\" width=\"8\" height=\"4\" rx=\"1\"/><path d=\"M16 5h2a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2\"/>",
+    "sun": "<circle cx=\"12\" cy=\"12\" r=\"4\"/><path d=\"M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4\"/>",
+    "moon": "<path d=\"M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z\"/>",
+    "note": "<path d=\"M12 20h9\"/><path d=\"M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z\"/>",
+    "check": "<circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"m8 12 3 3 5-6\"/>"
+};
+
+function icon(name, extraClass = '') {
+    const body = ICONS[name];
+    if (!body) return '';
+    return `<svg class="ico ${extraClass}" viewBox="0 0 24 24" aria-hidden="true">${body}</svg>`;
+}
+
+// Sostituisce i segnaposto <span data-icon="..."> presenti nell'HTML
+function hydrateIcons(root = document) {
+    root.querySelectorAll('[data-icon]:not([data-icon-done])').forEach(el => {
+        el.insertAdjacentHTML('afterbegin', icon(el.dataset.icon));
+        el.setAttribute('data-icon-done', '1');
+    });
+}
+
+function dot(kind) {
+    return `<i class="dot dot-${kind}"></i>`;
+}
+
 let currentData = [];
 let currentPresenceSummary = null;
 let currentActiveTile = 'tile-presence';
@@ -9,6 +52,7 @@ let teamMembersList = [];
 
 // --- INITIALIZATION ---
 document.addEventListener('DOMContentLoaded', () => {
+    hydrateIcons();
     initTheme();
     initParticles();
     initIPs();
@@ -34,7 +78,7 @@ function updateThemeButton() {
     const isDark = document.body.getAttribute('data-theme') === 'dark';
     const btn = document.getElementById('theme-btn');
     if (btn) {
-        btn.textContent = isDark ? '☀️ Light' : '🌙 Dark';
+        btn.innerHTML = isDark ? `${icon('sun')} Light` : `${icon('moon')} Dark`;
     }
 }
 
@@ -313,7 +357,7 @@ function startAnalysis() {
                 const wDays = currentPresenceSummary.working_days;
                 const periodText = wDays.length === 1 ? wDays[0] : `${wDays[0]} — ${wDays[wDays.length - 1]}`;
                 const hol = currentPresenceSummary.holidays || [];
-                periodBadge.textContent = `📅 Periodo: ${periodText} (${wDays.length} gg lavorativi)` +
+                periodBadge.textContent = `Periodo: ${periodText} (${wDays.length} gg lavorativi)` +
                     (hol.length ? ` · esclusi: ${hol.map(h => `${h.date} ${h.name}`).join(', ')}` : '');
             } else if (periodBadge) {
                 periodBadge.textContent = '';
@@ -428,13 +472,13 @@ function setupTeamView(data) {
             select.innerHTML = '';
             const optAll = document.createElement('option');
             optAll.value = 'ALL';
-            optAll.textContent = `👥 Tutto il Team (Aggregato - ${teamMembersList.length} tecnici)`;
+            optAll.textContent = `Tutto il Team (Aggregato - ${teamMembersList.length} tecnici)`;
             select.appendChild(optAll);
 
             teamMembersList.forEach(m => {
                 const opt = document.createElement('option');
                 opt.value = m;
-                opt.textContent = `👤 ${m} (${userHours[m].toFixed(1)}h)`;
+                opt.textContent = `${m} (${userHours[m].toFixed(1)}h)`;
                 select.appendChild(opt);
             });
             select.value = selectedTeamMember;
@@ -451,7 +495,7 @@ function setupTeamView(data) {
             teamMembersList.forEach(m => {
                 const opt = document.createElement('option');
                 opt.value = m;
-                opt.textContent = `👤 ${m}`;
+                opt.textContent = `${m}`;
                 qualityUserFilter.appendChild(opt);
             });
             qualityUserFilter.value = selectedTeamMember;
@@ -638,10 +682,10 @@ function renderPresenceTile() {
         tdUser.className = 'text-left col-user';
         tdUser.innerHTML = `
             <div class="matrix-user-cell" onclick="filterByTech('${escapeHtml(u.user)}')">
-                <span class="user-avatar-icon">👤</span>
+                <span class="user-avatar-icon">${icon('user')}</span>
                 <span class="user-name-text">${escapeHtml(u.user)}</span>
             </div>
-            <button class="mail-btn" title="Prepara email con le anomalie di ${escapeHtml(u.user)}" onclick="event.stopPropagation(); openAnomaliesMail('${escapeHtml(u.user)}')">✉️</button>
+            <button class="mail-btn" title="Prepara email con le anomalie di ${escapeHtml(u.user)}" onclick="event.stopPropagation(); openAnomaliesMail('${escapeHtml(u.user)}')">${icon('mail')}</button>
         `;
         tr.appendChild(tdUser);
         
@@ -673,13 +717,13 @@ function renderPresenceTile() {
         tdStatus.className = 'col-status';
         const sc = u.status_counts || {};
         if (sc.missing > 0) {
-            tdStatus.innerHTML = `<span class="matrix-status-pill status-danger">🔴 ${sc.missing} gg mancanti</span>`;
+            tdStatus.innerHTML = `<span class="matrix-status-pill status-danger">${dot('err')}${sc.missing} gg mancanti</span>`;
         } else if (sc.partial > 0) {
-            tdStatus.innerHTML = `<span class="matrix-status-pill status-warning">🟡 ${sc.partial} gg incompleti</span>`;
+            tdStatus.innerHTML = `<span class="matrix-status-pill status-warning">${dot('warn')}${sc.partial} gg incompleti</span>`;
         } else if (sc.over > 0) {
-            tdStatus.innerHTML = `<span class="matrix-status-pill status-warning" title="Ore in orario lavorativo oltre le 8h">🟠 ${sc.over} gg in esubero</span>`;
+            tdStatus.innerHTML = `<span class="matrix-status-pill status-warning" title="Ore in orario lavorativo oltre le 8h">${dot('over')}${sc.over} gg in esubero</span>`;
         } else {
-            tdStatus.innerHTML = `<span class="matrix-status-pill status-ok">🟢 Regolare</span>`;
+            tdStatus.innerHTML = `<span class="matrix-status-pill status-ok">${dot('ok')}Regolare</span>`;
         }
         tr.appendChild(tdStatus);
         
@@ -687,13 +731,13 @@ function renderPresenceTile() {
         const tdCS = document.createElement('td');
         tdCS.className = 'col-cs';
         const cs = u.context_switching || {};
-        tdCS.innerHTML = `<span class="context-switching-pill level-${cs.level || 'low'}" title="${cs.avg_accounts_per_day || 0} account/giorno in media, ${cs.total_unique_accounts || 0} account distinti">🔀 ${(cs.percent || 0).toFixed(1)}%</span>`;
+        tdCS.innerHTML = `<span class="context-switching-pill level-${cs.level || 'low'}" title="${cs.avg_accounts_per_day || 0} account/giorno in media, ${cs.total_unique_accounts || 0} account distinti">${icon('shuffle')}${(cs.percent || 0).toFixed(1)}%</span>`;
         tr.appendChild(tdCS);
 
         const tdSat = document.createElement('td');
         tdSat.className = 'col-cs';
         const sat = u.saturation || {};
-        tdSat.innerHTML = `<span class="saturation-pill level-${sat.level || 'low'}" title="${sat.client_hours || 0}h cliente su ${sat.available_hours || 0}h disponibili">📈 ${(sat.percent || 0).toFixed(0)}%</span>`;
+        tdSat.innerHTML = `<span class="saturation-pill level-${sat.level || 'low'}" title="${sat.client_hours || 0}h cliente su ${sat.available_hours || 0}h disponibili">${icon('trend')}${(sat.percent || 0).toFixed(0)}%</span>`;
         tr.appendChild(tdSat);
         
         // Giorni
@@ -705,17 +749,17 @@ function renderPresenceTile() {
             const outNote = (dInfo && dInfo.out_of_hours) ? ` + ${dInfo.out_of_hours}h fuori orario (non conteggiate)` : '';
             const absNote = (dInfo && dInfo.absence_hours) ? ` (di cui ${dInfo.absence_hours}h assenza)` : '';
             if (dInfo && dInfo.status === 'off') {
-                tdDay.innerHTML = `<span class="day-badge status-off" ${click} title="${escapeHtml(dInfo.label || 'Giorno non lavorativo')}: nessuna ora prevista"><span>${dInfo.hours}h</span><span class="day-badge-sub">⚪ ${escapeHtml(dInfo.label || 'Non lav.')}</span></span>`;
+                tdDay.innerHTML = `<span class="day-badge status-off" ${click} title="${escapeHtml(dInfo.label || 'Giorno non lavorativo')}: nessuna ora prevista"><span>${dInfo.hours}h</span><span class="day-badge-sub">${dot('off')}${escapeHtml(dInfo.label || 'Non lav.')}</span></span>`;
             } else if (!dInfo || dInfo.status === 'missing') {
-                tdDay.innerHTML = `<span class="day-badge status-missing" ${click} title="Nessuna ora in orario lavorativo. Mancano ${dInfo ? dInfo.missing_hours : 8}h.${outNote}"><span>0.0h</span><span class="day-badge-sub">🔴 Mancante</span></span>`;
+                tdDay.innerHTML = `<span class="day-badge status-missing" ${click} title="Nessuna ora in orario lavorativo. Mancano ${dInfo ? dInfo.missing_hours : 8}h.${outNote}"><span>0.0h</span><span class="day-badge-sub">${dot('err')}Mancante</span></span>`;
             } else if (dInfo.status === 'partial') {
-                tdDay.innerHTML = `<span class="day-badge status-partial" ${click} title="Registrate ${dInfo.hours}h su ${dInfo.expected_hours}h${absNote}. Mancano ${dInfo.missing_hours}h.${outNote}"><span>${dInfo.hours}h</span><span class="day-badge-sub">🟡 -${dInfo.missing_hours}h</span></span>`;
+                tdDay.innerHTML = `<span class="day-badge status-partial" ${click} title="Registrate ${dInfo.hours}h su ${dInfo.expected_hours}h${absNote}. Mancano ${dInfo.missing_hours}h.${outNote}"><span>${dInfo.hours}h</span><span class="day-badge-sub">${dot('warn')}-${dInfo.missing_hours}h</span></span>`;
             } else if (dInfo.status === 'absent') {
-                tdDay.innerHTML = `<span class="day-badge status-absent" ${click} title="Giornata coperta da assenza (${dInfo.absence_hours}h)"><span>${dInfo.hours}h</span><span class="day-badge-sub">🔵 Assenza</span></span>`;
+                tdDay.innerHTML = `<span class="day-badge status-absent" ${click} title="Giornata coperta da assenza (${dInfo.absence_hours}h)"><span>${dInfo.hours}h</span><span class="day-badge-sub">${dot('abs')}Assenza</span></span>`;
             } else if (dInfo.extra_hours > 0) {
-                tdDay.innerHTML = `<span class="day-badge status-over" ${click} title="Esubero: ${dInfo.hours}h in orario lavorativo${absNote}, +${dInfo.extra_hours}h oltre le ${dInfo.expected_hours}h.${outNote}"><span>${dInfo.hours}h</span><span class="day-badge-sub">🟠 +${dInfo.extra_hours}h</span></span>`;
+                tdDay.innerHTML = `<span class="day-badge status-over" ${click} title="Esubero: ${dInfo.hours}h in orario lavorativo${absNote}, +${dInfo.extra_hours}h oltre le ${dInfo.expected_hours}h.${outNote}"><span>${dInfo.hours}h</span><span class="day-badge-sub">${dot('over')}+${dInfo.extra_hours}h</span></span>`;
             } else {
-                const sub = dInfo.out_of_hours ? `🟢 OK +${dInfo.out_of_hours}h f.o.` : '🟢 OK';
+                const sub = dInfo.out_of_hours ? `${dot('ok')}OK +${dInfo.out_of_hours}h f.o.` : `${dot('ok')}OK`;
                 tdDay.innerHTML = `<span class="day-badge status-ok" ${click} title="Giornata regolare: ${dInfo.hours}h${absNote}${outNote}"><span>${dInfo.hours}h</span><span class="day-badge-sub">${sub}</span></span>`;
             }
             tr.appendChild(tdDay);
@@ -943,7 +987,7 @@ function renderResultsTable() {
             trBand.className = 'error-band';
             const tdBand = document.createElement('td');
             tdBand.colSpan = columns.length;
-            tdBand.innerHTML = `<strong>⛔ ERRORE LOGICO:</strong> ${escapeHtml(row['_Errore_Logico'])}`;
+            tdBand.innerHTML = `<strong>${icon('error')} ERRORE LOGICO:</strong> ${escapeHtml(row['_Errore_Logico'])}`;
             trBand.appendChild(tdBand);
             body.appendChild(trBand);
         }
@@ -954,7 +998,7 @@ function renderResultsTable() {
             trBand.className = 'warning-band';
             const tdBand = document.createElement('td');
             tdBand.colSpan = columns.length;
-            tdBand.innerHTML = `<strong>⚠️ AVVISO:</strong> ${escapeHtml(row['_Avviso'])}`;
+            tdBand.innerHTML = `<strong>${icon('alert')} AVVISO:</strong> ${escapeHtml(row['_Avviso'])}`;
             trBand.appendChild(tdBand);
             body.appendChild(trBand);
         }
@@ -965,7 +1009,7 @@ function renderResultsTable() {
             trBand.className = 'info-band';
             const tdBand = document.createElement('td');
             tdBand.colSpan = columns.length;
-            tdBand.innerHTML = `<strong>👥 SQUADRA:</strong> ${escapeHtml(row['_Condiviso'])}`;
+            tdBand.innerHTML = `<strong>${icon('users')} SQUADRA:</strong> ${escapeHtml(row['_Condiviso'])}`;
             trBand.appendChild(tdBand);
             body.appendChild(trBand);
         }
@@ -976,7 +1020,7 @@ function renderResultsTable() {
             trBand.className = 'warning-band';
             const tdBand = document.createElement('td');
             tdBand.colSpan = columns.length;
-            tdBand.innerHTML = `<strong>🤖 AVVISO IA:</strong> ${escapeHtml(row['_Avviso_IA'])}`;
+            tdBand.innerHTML = `<strong>${icon('bot')} AVVISO IA:</strong> ${escapeHtml(row['_Avviso_IA'])}`;
             trBand.appendChild(tdBand);
             body.appendChild(trBand);
         }
@@ -995,9 +1039,10 @@ function renderResultsTable() {
             } else if (absence && (colLower.includes('gruppo') || colLower === 'tipo')) {
                 td.innerHTML = `${escapeHtml(val)} <span class="badge-absence" title="Assenza: giustifica la giornata ma non conta come ore lavorate">Assenza</span>`;
             } else if (colLower.includes('responsabile') || colLower === 'tecnico') {
-                td.innerHTML = `<span class="team-user-badge" style="cursor:pointer;" onclick="filterByTech('${escapeHtml(val)}')">👤 ${escapeHtml(val)}</span>`;
+                td.innerHTML = `<span class="team-user-badge" style="cursor:pointer;" onclick="filterByTech('${escapeHtml(val)}')">${icon('user')} ${escapeHtml(val)}</span>`;
             } else {
                 td.textContent = val;
+                if (val && String(val).length > 40) td.title = String(val);
             }
             tr.appendChild(td);
         });
@@ -1092,7 +1137,7 @@ function renderClientsTile() {
             tr.onclick = () => filterByClient(s.account);
             const techs = s.users.map(u => `${escapeHtml(u)} (${s.hours[u]}h)`).join('<br>');
             const billing = double
-                ? `<span style="color:#ef4444; font-weight:700;">⚠️ Addebitato da ${s.billed_by.length} tecnici</span>`
+                ? `<span style="color:#ef4444; font-weight:700;">${icon('alert')} Addebitato da ${s.billed_by.length} tecnici</span>`
                 : ((s.billed_by || []).length === 1 ? `Da addebitare: ${escapeHtml(s.billed_by[0])}` : 'Non a gettone');
             tr.innerHTML = `
                 <td class="text-left">${escapeHtml(s.date)}</td>
@@ -1563,7 +1608,7 @@ function generateCharts(data, isExport = false) {
                                     const m = sortedMembers[idx];
                                     const tot = memberStats[m].billable + memberStats[m].nonBillable;
                                     const nbPerc = tot > 0 ? ((memberStats[m].nonBillable / tot) * 100).toFixed(1) : 0;
-                                    return `Totale: ${tot.toFixed(1)}h | Non Fatturabile: ${nbPerc}%\n👉 Clicca per visualizzare questo tecnico`;
+                                    return `Totale: ${tot.toFixed(1)}h | Non Fatturabile: ${nbPerc}%\nClicca per visualizzare questo tecnico`;
                                 }
                                 return '';
                             }
@@ -1666,7 +1711,7 @@ function loadRules() {
             const li = document.createElement('li');
             li.style.opacity = rule.is_active ? '1' : '0.5';
             const invalidNote = rule.validation_error
-                ? `<div style="font-size:0.8rem; color:#f59e0b; margin-top:4px;">⚠️ Regola non valida: ${escapeHtml(rule.validation_error)}</div>`
+                ? `<div style="font-size:0.8rem; color:#f59e0b; margin-top:4px;">${icon('alert')} Regola non valida: ${escapeHtml(rule.validation_error)}</div>`
                 : '';
             
             li.innerHTML = `
@@ -2050,7 +2095,7 @@ function renderNonBillableModalTable() {
         td.style.textAlign = 'center';
         td.style.padding = '35px';
         td.style.color = 'var(--success)';
-        td.innerHTML = '🎉 <strong>Ottimo risultato!</strong> Nessuna ora non fatturabile rilevata tra le categorie monitorate.';
+        td.innerHTML = icon('check') + ' <strong>Ottimo risultato!</strong> Nessuna ora non fatturabile rilevata tra le categorie monitorate.';
         tr.appendChild(td);
         if (tableBody) tableBody.appendChild(tr);
     } else {
@@ -2068,7 +2113,7 @@ function renderNonBillableModalTable() {
             let notesHTML = '';
             if (note && desc && note.toLowerCase() !== desc.toLowerCase()) {
                 notesHTML = `<div style="font-weight: 600; color: var(--text);">${escapeHtml(desc)}</div>
-                             <div style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 3px; font-style: italic;">📝 Note: ${escapeHtml(note)}</div>`;
+                             <div style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 3px; font-style: italic;">${icon('note')} Note: ${escapeHtml(note)}</div>`;
             } else {
                 const mainText = note || desc || '<span style="color: var(--text-secondary); font-style: italic;">Nessuna nota presente</span>';
                 notesHTML = `<div style="color: var(--text); line-height: 1.4;">${mainText === '-' ? mainText : (note || desc ? escapeHtml(mainText) : mainText)}</div>`;
@@ -2082,7 +2127,7 @@ function renderNonBillableModalTable() {
             const tr = document.createElement('tr');
             let trHTML = `<td style="padding: 10px; border-bottom: 1px solid var(--border); white-space: nowrap; font-size: 0.85rem;">${escapeHtml(dateVal)}</td>`;
             if (hasUtente) {
-                trHTML += `<td style="padding: 10px; border-bottom: 1px solid var(--border); font-weight: 600;"><span class="team-user-badge">👤 ${escapeHtml(utente)}</span></td>`;
+                trHTML += `<td style="padding: 10px; border-bottom: 1px solid var(--border); font-weight: 600;"><span class="team-user-badge">${icon('user')} ${escapeHtml(utente)}</span></td>`;
             }
             trHTML += `
                 <td style="padding: 10px; border-bottom: 1px solid var(--border);">

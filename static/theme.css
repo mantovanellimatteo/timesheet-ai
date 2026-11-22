@@ -62,7 +62,7 @@ body[data-theme="dark"] {
     background-attachment: fixed;
 }
 [data-theme="dark"] #tsparticles {
-    opacity: 0.22;
+    opacity: 0.85;
 }
 
 /* ---------- Contenitore principale ---------- */
@@ -333,6 +333,185 @@ body[data-theme="dark"] {
     background: var(--sg-surface-3);
     border-color: var(--sg-stroke);
     border-radius: 999px;
+}
+
+/* =====================================================================
+   Icone e pallini di stato (validi in entrambi i temi e nel PDF)
+   ===================================================================== */
+.ico {
+    width: 1.05em;
+    height: 1.05em;
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    vertical-align: -0.17em;
+    flex-shrink: 0;
+}
+.ico-wrap {
+    display: inline-flex;
+    align-items: center;
+}
+.dot {
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: currentColor;
+    margin-right: 6px;
+    vertical-align: 0.08em;
+    flex-shrink: 0;
+}
+.dot-ok   { background: #30d158; }
+.dot-warn { background: #ffd60a; }
+.dot-err  { background: #ff453a; }
+.dot-over { background: #ff9f0a; }
+.dot-abs  { background: #64d2ff; }
+.dot-off  { background: #8e8e93; }
+.btn .ico, .theme-toggle .ico { margin-right: 4px; }
+.file-preview-icon { font-size: 2.4rem; color: var(--accent); margin-bottom: 6px; }
+.user-avatar-icon { display: inline-flex; color: var(--text-secondary); }
+.mail-btn { display: inline-flex; align-items: center; vertical-align: middle; }
+.context-switching-pill .ico, .saturation-pill .ico { width: 0.95em; height: 0.95em; }
+
+/* =====================================================================
+   Matrice presenze compatta
+   ===================================================================== */
+.presence-matrix td {
+    padding: 9px 14px;
+}
+.presence-matrix th {
+    padding-top: 12px;
+    padding-bottom: 12px;
+}
+.day-badge {
+    min-width: 74px;
+    padding: 4px 10px;
+    font-size: 0.82rem;
+    border-radius: 11px;
+}
+.day-badge-sub {
+    display: inline-flex;
+    align-items: center;
+    font-size: 0.68rem;
+}
+.day-badge-sub .dot { width: 6px; height: 6px; margin-right: 4px; }
+.matrix-status-pill {
+    display: inline-flex;
+    align-items: center;
+}
+
+/* =====================================================================
+   Tabelle, bande, popup e upload (tema scuro)
+   ===================================================================== */
+[data-theme="dark"] .table-wrapper {
+    background: var(--sg-sheen), var(--sg-surface-2);
+    border: 1px solid var(--sg-stroke);
+    border-radius: var(--sg-radius-lg);
+    box-shadow: var(--sg-shadow);
+}
+[data-theme="dark"] #results-table th,
+[data-theme="dark"] .clients-table th {
+    background: rgba(255, 255, 255, 0.025);
+    color: var(--text-secondary);
+    font-weight: 600;
+    font-size: 0.75rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+[data-theme="dark"] #results-table td,
+[data-theme="dark"] .clients-table td {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.045);
+}
+[data-theme="dark"] #results-table tbody tr:hover,
+[data-theme="dark"] .clients-table tbody tr:hover {
+    background: rgba(255, 255, 255, 0.03);
+}
+[data-theme="dark"] .error-band td,
+[data-theme="dark"] .warning-band td,
+[data-theme="dark"] .info-band td {
+    border-top: none;
+    font-size: 0.84rem;
+    padding: 7px 15px;
+}
+[data-theme="dark"] .error-band td   { background: linear-gradient(90deg, rgba(255, 69, 58, 0.20), rgba(255, 69, 58, 0.06)) !important; color: #ffb4ae; box-shadow: inset 3px 0 0 #ff453a; }
+[data-theme="dark"] .warning-band td { background: linear-gradient(90deg, rgba(255, 159, 10, 0.18), rgba(255, 159, 10, 0.05)) !important; color: #ffd08a; box-shadow: inset 3px 0 0 #ff9f0a; }
+[data-theme="dark"] .info-band td    { background: linear-gradient(90deg, rgba(100, 210, 255, 0.14), rgba(100, 210, 255, 0.04)) !important; color: #a9e4ff; box-shadow: inset 3px 0 0 #64d2ff; }
+[data-theme="dark"] .error-band strong .ico,
+[data-theme="dark"] .warning-band strong .ico,
+[data-theme="dark"] .info-band strong .ico { margin-right: 3px; }
+
+/* Celle su una riga: il testo lungo si legge passando sopra (tooltip) */
+#results-table td {
+    white-space: nowrap;
+    max-width: 340px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    padding-top: 9px;
+    padding-bottom: 9px;
+}
+#results-table tr.error-band td,
+#results-table tr.warning-band td,
+#results-table tr.info-band td {
+    white-space: normal;
+    max-width: none;
+    overflow: visible;
+}
+
+[data-theme="dark"] .team-user-badge {
+    color: var(--text-primary) !important;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: var(--sg-surface-3);
+    border: 1px solid var(--sg-stroke);
+    border-radius: 999px;
+}
+
+[data-theme="dark"] .modal-overlay {
+    background: rgba(5, 5, 8, 0.6);
+}
+[data-theme="dark"] .modal-card {
+    background: var(--sg-sheen), var(--sg-surface-1);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    border: 1px solid var(--sg-stroke-strong);
+    border-radius: var(--sg-radius-xl);
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.12) inset, 0 40px 100px rgba(0, 0, 0, 0.7);
+}
+[data-theme="dark"] .modal-card h3 .ico { margin-right: 6px; }
+
+[data-theme="dark"] #file-preview > div:first-child {
+    background: var(--sg-sheen), var(--sg-surface-2) !important;
+    border: 1px solid var(--sg-stroke) !important;
+    border-radius: var(--sg-radius-lg) !important;
+    box-shadow: var(--sg-shadow);
+}
+[data-theme="dark"] .upload-zone:hover,
+[data-theme="dark"] .upload-zone.dragover {
+    border-color: rgba(200, 36, 63, 0.6) !important;
+    box-shadow: var(--sg-shadow), 0 0 0 4px rgba(200, 36, 63, 0.12) !important;
+}
+
+/* =====================================================================
+   Schermi piccoli
+   ===================================================================== */
+@media (max-width: 760px) {
+    .glass-container {
+        padding: 18px 16px;
+        border-radius: 22px;
+    }
+    [data-theme="dark"] header {
+        grid-template-columns: auto 1fr;
+    }
+    [data-theme="dark"] header .logo { max-height: 34px; }
+    [data-theme="dark"] header h1 { font-size: 1.2rem; }
+    [data-theme="dark"] header p { display: none; }
+    [data-theme="dark"] .theme-toggle { grid-column: 2; grid-row: 1; justify-self: end; }
+    [data-theme="dark"] .report-bar { position: static; }
+    .tile-tab-btn { min-width: max-content; flex: 0 0 auto; }
+    .kpi-card { min-width: calc(50% - 8px) !important; }
 }
 
 /* ---------- Accessibilità ---------- */
