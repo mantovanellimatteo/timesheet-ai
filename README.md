@@ -115,7 +115,7 @@ python3 -m venv venv
 source venv/bin/activate  # Su Windows: venv\Scripts\activate
 
 # Installa le dipendenze
-pip install fastapi uvicorn pandas openpyxl requests python-multipart
+pip install -r requirements.txt
 
 # Avvia il server
 uvicorn main:app --host 0.0.0.0 --port 8000 --reload
