@@ -1,17 +1,40 @@
 {
   "default_daily_hours": 8,
   "saturation_target": 70,
-
   "company_closures": [
-    {"date": "2026-12-24", "name": "Chiusura aziendale"},
-    {"date": "08-14", "name": "Ponte di Ferragosto (ogni anno)"}
+    {
+      "date": "2026-12-24",
+      "name": "Esempio: chiusura aziendale"
+    }
   ],
-
   "sede_holidays": {
-    "TOR": [{"date": "06-24", "name": "San Giovanni (Torino)"}],
-    "XXX": [{"date": "MM-GG", "name": "Patrono da compilare"}]
+    "BRP": [
+      {
+        "date": "02-15",
+        "name": "Santi Faustino e Giovita (Brescia)"
+      }
+    ],
+    "REG": [
+      {
+        "date": "11-24",
+        "name": "San Prospero (Reggio Emilia)"
+      }
+    ],
+    "VIC": [
+      {
+        "date": "09-08",
+        "name": "Madonna di Monte Berico (Vicenza)"
+      }
+    ],
+    "TOR": [
+      {
+        "date": "09-21",
+        "name": "Madonna della Stella (Rivoli)"
+      }
+    ],
+    "FAE": [],
+    "NOV": []
   },
-
   "technicians": {
     "COGNOME NOME": {
       "email": "nome.cognome@azienda.it",
@@ -20,7 +43,14 @@
     },
     "COGNOME PARTTIME": {
       "email": "",
-      "daily_hours": {"lun": 4, "mar": 4, "mer": 4, "gio": 4, "ven": 4}
+      "daily_hours": {
+        "lun": 4,
+        "mar": 4,
+        "mer": 4,
+        "gio": 4,
+        "ven": 4
+      }
     }
-  }
+  },
+  "_note_sedi": "FAE (Faenza): Madonna delle Grazie, sabato prima della 2a domenica di maggio. NOV (Nova Milanese): Sant'Antonino, 3a domenica di settembre. Cadono sempre nel weekend, quindi non servono."
 }
