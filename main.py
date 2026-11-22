@@ -9,6 +9,7 @@ from pydantic import BaseModel
 import config
 from analysis import TimesheetError, analyze_timesheet
 from rules_engine import RuleValidationError, compile_rules, validate_expression
+from workcalendar import WorkCalendar, load_workforce_config
 
 
 def get_conn():
@@ -139,7 +140,8 @@ def upload_file(file: UploadFile = File(...), ollama_ip: str = Form("")):
 
     try:
         results, presence = analyze_timesheet(
-            file.filename, contents, compile_rules(rules), ollama_url, config.OLLAMA_MODEL
+            file.filename, contents, compile_rules(rules), ollama_url, config.OLLAMA_MODEL,
+            calendar=WorkCalendar(load_workforce_config()),
         )
     except TimesheetError as e:
         raise HTTPException(status_code=400, detail=str(e))

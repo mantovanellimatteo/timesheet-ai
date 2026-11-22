@@ -34,18 +34,18 @@ def test_context_switching_excludes_ics_generali():
 
 
 def test_presence_missing_partial_and_sorting():
-    # Lun 05/01/2026 completo, Mar 06 parziale, Mer 07 mancante, Gio 08 completo
+    # Lun 12/01/2026 completo, Mar 06 parziale, Mer 07 mancante, Gio 08 completo
     data = csv(
-        "08/01/2026;Mario;Cliente A;CLI;8;Sviluppo modulo fatturazione",
-        "05/01/2026;Mario;Cliente A;CLI;8;Sviluppo modulo fatturazione",
-        "06/01/2026;Mario;Cliente A;CLI;5;Sviluppo modulo fatturazione",
+        "15/01/2026;Mario;Cliente A;CLI;8;Sviluppo modulo fatturazione",
+        "12/01/2026;Mario;Cliente A;CLI;8;Sviluppo modulo fatturazione",
+        "13/01/2026;Mario;Cliente A;CLI;5;Sviluppo modulo fatturazione",
     )
     results, presence = run(data)
     gm = presence["global_metrics"]
     assert gm["working_days_count"] == 4
     assert (gm["total_ok_days"], gm["total_partial_days"], gm["total_missing_days"]) == (2, 1, 1)
     assert gm["total_missing_hours"] == 11.0
-    assert [r["Data"] for r in results] == ["05/01/2026", "06/01/2026", "07/01/2026", "08/01/2026"]
+    assert [r["Data"] for r in results] == ["12/01/2026", "13/01/2026", "14/01/2026", "15/01/2026"]
     assert "Giornata incompleta" in results[1]["_Errore_Logico"]
     assert "Mancano le ore" in results[2]["_Errore_Logico"]
     assert all("_Virtuale" not in r for r in results)
@@ -169,3 +169,91 @@ def test_context_switching_only_on_client_activities():
     _, presence = run(data)
     # solo clienti: 3h A + 1h B -> 1 - 3/4 = 25%
     assert presence["users"][0]["context_switching"]["percent"] == 25.0
+
+
+# --- Calendario, orari per tecnico, saturazione, lavoro di squadra ---------
+
+from workcalendar import WorkCalendar, easter_sunday, national_holidays
+from datetime import date
+
+
+def test_italian_holidays():
+    assert easter_sunday(2026) == date(2026, 4, 5)
+    hol = national_holidays(2026)
+    assert hol[date(2026, 4, 6)] == "Lunedì dell'Angelo"
+    assert date(2026, 12, 8) in hol and date(2026, 6, 2) in hol
+
+
+def test_holidays_excluded_and_part_time_and_patron():
+    cal = WorkCalendar({
+        "technicians": {"ROSSI MARIO": {"daily_hours": {"lun": 4, "mar": 4, "mer": 4, "gio": 4}}},
+        "sede_holidays": {"TOR": [{"date": "12-09", "name": "Patrono test"}]},
+        "company_closures": ["2026-12-07"],
+    })
+    header = "Data;Tecnico;Sede;Account;Gruppo Timesheet;Ore;Descrizione\n"
+    lines = [
+        "09/12/2026;ROSSI MARIO;FAE;Cliente A;CLI Gettoni;4;Intervento su server di posta",
+        "10/12/2026;ROSSI MARIO;FAE;Cliente A;CLI Gettoni;4;Intervento su server di posta",
+        "09/12/2026;BIANCHI LUCA;TOR;Cliente A;CLI Gettoni;8;Intervento su server di posta",
+        "10/12/2026;BIANCHI LUCA;TOR;Cliente A;CLI Gettoni;8;Intervento su server di posta",
+        "11/12/2026;BIANCHI LUCA;TOR;Cliente A;CLI Gettoni;8;Intervento su server di posta",
+    ]
+    # periodo lun 07/12 (chiusura aziendale) - ven 11/12; 08/12 Immacolata
+    lines.append("07/12/2026;BIANCHI LUCA;TOR;Cliente A;CLI Gettoni;2;Intervento urgente su firewall")
+    data = (header + "\n".join(lines) + "\n").encode()
+    results, presence = analyze_timesheet("t.csv", data, [], calendar=cal)
+    assert presence["working_days"] == ["09/12/2026", "10/12/2026", "11/12/2026"]
+    assert presence["holidays"] == [{"date": "07/12/2026", "name": "Chiusura aziendale"},
+                                    {"date": "08/12/2026", "name": "Immacolata Concezione"}]
+    users = {u["user"]: u for u in presence["users"]}
+    rossi, bianchi = users["ROSSI MARIO"], users["BIANCHI LUCA"]
+    # part-time 4h lun-gio, venerdì non lavorativo
+    assert rossi["days"]["09/12/2026"]["status"] == "ok"
+    assert rossi["days"]["11/12/2026"]["status"] == "off"
+    # patrono della sede TOR il 09/12: giornata non richiesta
+    assert bianchi["days"]["09/12/2026"]["status"] == "off"
+    assert bianchi["days"]["09/12/2026"]["label"] == "Patrono test"
+    assert bianchi["sede"] == "TOR"
+    # saturazione: Rossi 8h cliente su 8h disponibili; Bianchi 24h (nei giorni lavorativi) su 16h
+    assert rossi["saturation"]["percent"] == 100.0
+    assert bianchi["saturation"]["available_hours"] == 16.0
+    assert not any("Mancano" in r["_Errore_Logico"] for r in results)
+
+
+def test_holiday_listed_in_period():
+    data = csv(
+        "07/12/2026;Mario;Cliente A;CLI;8;Sviluppo modulo fatturazione",
+        "09/12/2026;Mario;Cliente A;CLI;8;Sviluppo modulo fatturazione",
+    )
+    _, presence = run(data)
+    assert presence["working_days"] == ["07/12/2026", "09/12/2026"]
+    assert presence["holidays"] == [{"date": "08/12/2026", "name": "Immacolata Concezione"}]
+
+
+def test_shared_work_and_double_billing():
+    header = ('Data;Commessa;Stato TimeSheet;Account;Responsabile Attività;Consuntivo Ore;'
+              'Gruppo TimeSheet;Tipo Orario;T.Registrazione Gettoni;Nota\n')
+    lines = [
+        "02/11/2026;37-1;80;CAAF SRL;CHIFARI SIMONE;1;CLI Gettoni;Lavorativo;Da addebitare;"
+        "Rinnovo del certificato interno dei due Broker server con Efrem Spataro.",
+        "02/11/2026;37-1;80;CAAF SRL;SPATARO EFREM;1,5;CLI Gettoni;Lavorativo;Da addebitare;"
+        "Rinnovo del certificato interno dei due Broker server con Simone Chifari.",
+        "02/11/2026;40-2;80;DIACHEM SPA;CHIFARI SIMONE;0,5;CLI Attivita' a corpo;Lavorativo;;SAL interno",
+        "02/11/2026;40-2;80;DIACHEM SPA;SPATARO EFREM;2;CLI Attivita' a corpo;Lavorativo;;"
+        "SAL con Giulia e Simone Chifari. Installazione FSLogix.",
+        "02/11/2026;37-9;80;ALTRO SPA;CHIFARI SIMONE;1;CLI Gettoni;Lavorativo;Da addebitare;Aggiornamento firewall",
+        "02/11/2026;37-9;80;ALTRO SPA;SPATARO EFREM;1;CLI Gettoni;Lavorativo;Da addebitare;Verifica licenze Citrix",
+    ]
+    data = (header + "\n".join(lines) + "\n").encode()
+    results, presence = analyze_timesheet("t.csv", data, [])
+    shared = presence["shared_work"]
+    assert [s["account"] for s in shared] == ["CAAF SRL", "DIACHEM SPA"]
+    assert shared[0]["billed_by"] == ["CHIFARI SIMONE", "SPATARO EFREM"]
+    assert shared[0]["hours"] == {"CHIFARI SIMONE": 1.0, "SPATARO EFREM": 1.5}
+    caaf = [r for r in results if r["Account"] == "CAAF SRL"]
+    assert all("doppio addebito" in r["_Avviso"] for r in caaf)
+    diachem = [r for r in results if r["Account"] == "DIACHEM SPA"]
+    assert all(r["_Condiviso"].startswith("Intervento condiviso con") for r in diachem)
+    assert not any("doppio addebito" in r["_Avviso"] for r in diachem)
+    altro = [r for r in results if r["Account"] == "ALTRO SPA"]
+    assert not any(r.get("_Condiviso") for r in altro)

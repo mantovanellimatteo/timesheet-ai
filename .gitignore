@@ -30,3 +30,6 @@ env/
 
 # Log
 *.log
+
+# Configurazione personale (nominativi, email, orari)
+workforce.json

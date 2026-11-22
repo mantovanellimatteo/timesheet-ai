@@ -1329,3 +1329,75 @@ tr.non-billable-highlight td {
     color: #94a3b8;
     border: 1px solid rgba(148, 163, 184, 0.4);
 }
+
+/* Giorni non lavorativi (patrono, part-time) */
+.day-badge.status-off {
+    background: rgba(148, 163, 184, 0.12);
+    color: #94a3b8;
+    border: 1px dashed rgba(148, 163, 184, 0.45);
+}
+
+/* Saturazione */
+.saturation-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 700;
+}
+.saturation-pill.level-high { background: rgba(16, 185, 129, 0.12); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3); }
+.saturation-pill.level-medium { background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.35); }
+.saturation-pill.level-low { background: rgba(239, 68, 68, 0.14); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.35); }
+
+.mail-btn {
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    cursor: pointer;
+    padding: 2px 6px;
+    font-size: 0.85rem;
+    margin-left: 6px;
+    color: var(--text-secondary);
+}
+.mail-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+/* Banda informativa (interventi condivisi) */
+.info-band td {
+    background-color: rgba(96, 165, 250, 0.14) !important;
+    color: #93c5fd;
+    padding: 6px 15px;
+    font-size: 0.85rem;
+    border-top: 2px solid #60a5fa;
+}
+[data-theme="light"] .info-band td {
+    background-color: rgba(96, 165, 250, 0.12) !important;
+    color: #1e40af;
+}
+
+/* Tabelle tile Clienti */
+.clients-table-wrapper {
+    overflow-x: auto;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+}
+.clients-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+}
+.clients-table th, .clients-table td {
+    padding: 9px 12px;
+    border-bottom: 1px solid var(--border);
+    text-align: right;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+.clients-table th { color: var(--text-secondary); font-weight: 700; font-size: 0.78rem; text-transform: uppercase; }
+.clients-table .text-left { text-align: left; }
+.clients-table td.wrap { white-space: normal; min-width: 220px; }
+.clients-table tbody tr { cursor: pointer; }
+.clients-table tbody tr:hover { background: rgba(255, 255, 255, 0.04); }
+.clients-table tfoot td { font-weight: 800; border-bottom: none; }
+.clients-table tr.double-billing td { background: rgba(239, 68, 68, 0.08); }

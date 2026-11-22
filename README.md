@@ -132,6 +132,7 @@ Apri il browser su `http://localhost:8000`
 | `OLLAMA_PORT` | `11434` | Porta del server Ollama |
 | `OLLAMA_HOST_DEFAULT` | `127.0.0.1` | Host usato se il client non ne indica uno |
 | `TIMESHEET_DB` | `timesheet_rules.db` | Percorso del database SQLite delle regole |
+| `WORKFORCE_FILE` | `workforce.json` | File di configurazione tecnici, sedi, chiusure e obiettivo di saturazione |
 
 ### Test
 
@@ -165,6 +166,8 @@ timesheet-ai/
 ├── analysis.py          # Pipeline di analisi: parsing, controlli, presenze, context switching
 ├── rules_engine.py      # Validazione (AST) e valutazione sicura delle regole custom
 ├── config.py            # Configurazione da variabili d'ambiente + validazione host Ollama
+├── workcalendar.py      # Festività, chiusure, patroni per sede, orari per tecnico
+├── workforce.example.json # Esempio di configurazione tecnici/sedi (copiare in workforce.json)
 ├── requirements.txt     # Dipendenze runtime
 ├── requirements-dev.txt # Dipendenze per i test
 ├── tests/               # Test pytest
@@ -172,6 +175,7 @@ timesheet-ai/
 │   ├── index.html       # Interfaccia utente
 │   ├── styles.css       # Stili (tema Smeup)
 │   ├── script.js        # Logica frontend
+│   ├── vendor/          # Librerie JS servite in locale (Chart.js, html2pdf, tsParticles, confetti)
 │   └── logo.png         # Logo aziendale
 └── README.md
 ```
@@ -224,6 +228,31 @@ Ogni riga viene classificata in base al **Gruppo TimeSheet** (in mancanza, dalla
 - giornata coperta solo da assenze → *assenza giustificata*.
 
 **Altri controlli automatici:** commessa mancante su attività cliente (errore), timesheet non confermato (`Stato TimeSheet` ≠ 80), nota mancante, possibili duplicati (stesso tecnico, giorno, commessa, fascia oraria e nota).
+
+---
+
+## 📅 Calendario, Orari per Tecnico e Saturazione
+
+- **Festività nazionali** italiane (inclusa Pasquetta, calcolata automaticamente) e **chiusure aziendali** vengono escluse dal periodo.
+- **Patroni per sede** e **orari contrattuali** (part-time, orari diversi per giorno) si configurano in `workforce.json`
+  (vedi `workforce.example.json`; il file non è versionato perché contiene nominativi ed email). Le modifiche valgono
+  dall'analisi successiva, senza riavviare il servizio. La sede del tecnico è letta dalla colonna `Sede` dell'export
+  se non indicata nel file.
+- **Saturazione** = ore su attività cliente / ore disponibili (orario contrattuale al netto di assenze e festivi).
+  Obiettivo di default 70% (verde ≥ 70%, ambra 50–70%, rosso < 50%), modificabile con `saturation_target`.
+
+```bash
+cp workforce.example.json workforce.json   # poi compila tecnici, sedi e chiusure
+```
+
+## 🏢 Clienti, Commesse e Lavoro di Squadra
+
+- **Riepilogo per cliente**: ore totali suddivise per Gettoni (e quota *Da addebitare*), a corpo, a consuntivo,
+  servizio/contratto, con tecnici e commesse coinvolte. Rispetta il filtro per tecnico.
+- **Interventi condivisi**: stesso cliente e giorno, tecnici diversi, note simili o che citano il collega.
+  Se l'intervento è *Da addebitare* per più tecnici viene segnalato un possibile **doppio addebito**.
+- **Email anomalie**: il pulsante ✉️ nella matrice presenze prepara una email (mailto) con le segnalazioni del
+  tecnico, da inviare dal proprio client di posta. L'indirizzo è preso da `workforce.json`.
 
 ---
 

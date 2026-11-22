@@ -1,6 +1,7 @@
 """Analisi dei timesheet: lettura file, controlli, presenze e context switching."""
 import io
 import json
+import re
 import unicodedata
 from datetime import date, datetime, timedelta
 
@@ -8,8 +9,8 @@ import pandas as pd
 import requests
 
 from rules_engine import evaluate_rules, safe_float
+from workcalendar import WorkCalendar
 
-EXPECTED_DAILY_HOURS = 8.0
 MAX_PERIOD_DAYS = 90
 AI_MAX_DESCRIPTIONS = 5
 AI_TIMEOUT_SECONDS = 8
@@ -33,6 +34,9 @@ VAGUE_TERMS = {
     'allineamento', 'task', 'cose varie', 'sviluppo', 'attività', 'attivita',
     'help', 'help desk', 'helpdesk', 'ticket', 'chiusura ticket', 'lavori vari'
 }
+
+SHARED_NOTE_SIMILARITY = 0.6  # soglia similarità note per riconoscere interventi condivisi
+BILLABLE_FLAG = 'DA ADDEBITARE'
 
 # Soglie Context Switching (percentuale): <=50 verde, <=70 ambra, >70 rosso
 CS_MEDIUM_THRESHOLD = 50.0
@@ -234,7 +238,7 @@ def evaluate_native_rules(row):
     if not is_working_hours(row):
         warnings.append(
             f"Attività fuori orario ({row.get('Tipo Orario')}): non conteggiata nelle "
-            f"{EXPECTED_DAILY_HOURS:g}h della giornata"
+            "ore previste della giornata"
         )
     return errors, warnings
 
@@ -337,6 +341,103 @@ Rispondi ESCLUSIVAMENTE in formato JSON con chiavi numeriche:
 
 
 # ---------------------------------------------------------------------------
+# Lavoro di squadra
+# ---------------------------------------------------------------------------
+
+_WORD_RE = re.compile(r"[a-zàèéìòù0-9]+")
+
+
+def _note_words(note):
+    return {w for w in _WORD_RE.findall(note.lower()) if len(w) > 2}
+
+
+def note_similarity(a, b):
+    wa, wb = _note_words(a), _note_words(b)
+    if not wa or not wb:
+        return 0.0
+    return len(wa & wb) / len(wa | wb)
+
+
+def _mentions(note, user):
+    """True se la nota cita il cognome (o il nome) del collega."""
+    words = _note_words(note)
+    return any(len(part) > 3 and part.lower() in words for part in str(user).split())
+
+
+def detect_shared_work(results, date_col, user_col):
+    """Riconosce interventi cliente svolti insieme da più tecnici: stesso giorno e
+    Account, tecnici diversi, note simili oppure nota che cita il collega.
+
+    Aggiunge `_Condiviso` alle righe coinvolte e un avviso se l'intervento è
+    'Da addebitare' per più tecnici (possibile doppio addebito). Ritorna l'elenco
+    degli interventi condivisi.
+    """
+    by_key = {}
+    for idx, r in enumerate(results):
+        if r.get('_Categoria') != CLIENTE:
+            continue
+        acc = get_account(r)
+        user = str(r.get(user_col, '')).strip()
+        if acc and user:
+            by_key.setdefault((str(r.get(date_col, '')), acc), []).append(idx)
+
+    # Union-find sugli indici che risultano collegati
+    parent = {}
+
+    def find(i):
+        parent.setdefault(i, i)
+        while parent[i] != i:
+            parent[i] = parent[parent[i]]
+            i = parent[i]
+        return i
+
+    for idxs in by_key.values():
+        for a_pos, i in enumerate(idxs):
+            for j in idxs[a_pos + 1:]:
+                ri, rj = results[i], results[j]
+                ui, uj = str(ri.get(user_col, '')).strip(), str(rj.get(user_col, '')).strip()
+                if ui == uj:
+                    continue
+                ni, nj = get_note(ri), get_note(rj)
+                if (note_similarity(ni, nj) >= SHARED_NOTE_SIMILARITY
+                        or _mentions(ni, uj) or _mentions(nj, ui)):
+                    parent[find(i)] = find(j)
+
+    groups = {}
+    for i in list(parent):
+        groups.setdefault(find(i), []).append(i)
+
+    shared = []
+    for idxs in groups.values():
+        if len(idxs) < 2:
+            continue
+        idxs.sort()
+        rows = [results[i] for i in idxs]
+        users = sorted({str(r.get(user_col, '')).strip() for r in rows})
+        billed = sorted({str(r.get(user_col, '')).strip() for r in rows
+                         if str(r.get('T.Registrazione Gettoni', '')).strip().upper() == BILLABLE_FLAG})
+        for r in rows:
+            me = str(r.get(user_col, '')).strip()
+            others = [u for u in users if u != me]
+            r['_Condiviso'] = "Intervento condiviso con " + ", ".join(others)
+            if len(billed) > 1 and me in billed:
+                add_message(r, '_Avviso',
+                            f"Intervento condiviso addebitato da {len(billed)} tecnici "
+                            f"({', '.join(billed)}): verificare doppio addebito")
+        shared.append({
+            "date": str(rows[0].get(date_col, '')),
+            "account": get_account(rows[0]),
+            "users": users,
+            "hours": {u: round(sum(get_hours(r) for r in rows
+                                   if str(r.get(user_col, '')).strip() == u), 2) for u in users},
+            "billed_by": billed,
+            "notes": [get_note(r) for r in rows],
+        })
+    shared.sort(key=lambda s: (parse_date(s["date"]) or date.min, s["account"]))
+    return shared
+
+
+# ---------------------------------------------------------------------------
 # Context switching
 # ---------------------------------------------------------------------------
 
@@ -420,11 +521,19 @@ def _detect_output_format(sample):
 
 
 def _new_day():
-    return {"in_hours": 0.0, "out_hours": 0.0, "absence_hours": 0.0,
+    return {"in_hours": 0.0, "out_hours": 0.0, "absence_hours": 0.0, "client_hours": 0.0,
             "rows": [], "in_rows": [], "accounts": set()}
 
 
-def compute_presence(results, columns, date_col, user_col):
+def saturation_level(pct, target):
+    if pct >= target:
+        return "high"
+    if pct >= target - 20:
+        return "medium"
+    return "low"
+
+
+def compute_presence(results, columns, date_col, user_col, calendar=None):
     """Matrice presenze sul periodo.
 
     Regole:
@@ -432,11 +541,15 @@ def compute_presence(results, columns, date_col, user_col):
     - le ore fuori orario non contano per le 8h (sono riportate a parte);
     - copertura < 8h -> giornata incompleta (errore), 0h -> giornata mancante (riga virtuale);
     - copertura > 8h -> esubero (avviso, la giornata resta valida);
-    - giornata coperta solo da assenze -> "assente giustificato".
+    - giornata coperta solo da assenze -> "assente giustificato";
+    - festività nazionali e chiusure aziendali escluse dal periodo; patroni per sede
+      e giorni non lavorativi del tecnico (part-time) -> stato "off" (0h previste).
     Modifica `results` in place.
     """
+    cal = calendar or WorkCalendar()
     summary = {
         "working_days": [],
+        "holidays": [],
         "users": [],
         "global_metrics": {
             "total_users": 0, "total_hours": 0.0, "working_days_count": 0,
@@ -445,7 +558,9 @@ def compute_presence(results, columns, date_col, user_col):
             "total_missing_hours": 0.0, "total_extra_hours": 0.0,
             "total_out_of_hours": 0.0, "total_absence_hours": 0.0,
             "total_client_hours": 0.0, "total_non_billable_hours": 0.0,
-            "avg_context_switching": 0.0,
+            "avg_context_switching": 0.0, "total_off_days": 0,
+            "total_available_hours": 0.0, "saturation": 0.0,
+            "saturation_target": cal.saturation_target, "saturation_level": "low",
         },
     }
     gm = summary["global_metrics"]
@@ -483,8 +598,10 @@ def compute_presence(results, columns, date_col, user_col):
             day["in_rows"].append(idx)
         else:
             day["out_hours"] += hrs
-        if category == CLIENTE and get_account(r):
-            day["accounts"].add(get_account(r))
+        if category == CLIENTE:
+            day["client_hours"] += hrs
+            if get_account(r):
+                day["accounts"].add(get_account(r))
 
     for k in ("total_client_hours", "total_non_billable_hours", "total_absence_hours"):
         gm[k] = round(gm[k], 2)
@@ -502,27 +619,31 @@ def compute_presence(results, columns, date_col, user_col):
         _sort_results(results, date_col, user_col)
         return summary
 
+    fmt = _detect_output_format(next(iter(parsed_dates)))
+    cal.learn_sedi(results, user_col)
     working_days = []
     curr = min_date
     while curr <= max_date:
-        if curr.weekday() < 5:
+        if cal.is_company_working_day(curr):
             working_days.append(curr)
+        elif curr.weekday() < 5:
+            summary["holidays"].append({"date": curr.strftime(fmt), "name": cal.company_holiday(curr)})
         curr += timedelta(days=1)
 
-    fmt = _detect_output_format(next(iter(parsed_dates)))
     summary["working_days"] = [w.strftime(fmt) for w in working_days]
     gm["working_days_count"] = len(working_days)
-    expected = EXPECTED_DAILY_HOURS
 
     virtual_rows = []
     users_summary = []
     for user in unique_users:
         user_days = {}
-        counts = {"ok": 0, "partial": 0, "missing": 0, "absent": 0, "over": 0}
-        totals = {"worked": 0.0, "absence": 0.0, "out": 0.0, "extra": 0.0, "missing": 0.0}
+        counts = {"ok": 0, "partial": 0, "missing": 0, "absent": 0, "over": 0, "off": 0}
+        totals = {"worked": 0.0, "absence": 0.0, "out": 0.0, "extra": 0.0, "missing": 0.0,
+                  "client": 0.0, "available": 0.0}
         for w in working_days:
             d_str = w.strftime(fmt)
             day = days.get((user, w), _new_day())
+            expected = cal.expected_hours(user, w)
             in_h = round(day["in_hours"], 2)
             out_h = round(day["out_hours"], 2)
             abs_h = round(day["absence_hours"], 2)
@@ -530,8 +651,11 @@ def compute_presence(results, columns, date_col, user_col):
             totals["worked"] += in_h + out_h
             totals["absence"] += abs_h
             totals["out"] += out_h
+            totals["client"] += day["client_hours"]
+            totals["available"] += max(expected - abs_h, 0.0)
 
             info = {
+                "expected_hours": expected,
                 "hours": covered,
                 "worked_hours": in_h,
                 "absence_hours": abs_h,
@@ -541,7 +665,11 @@ def compute_presence(results, columns, date_col, user_col):
                 "accounts_count": len(day["accounts"]),
                 "entries_count": len(day["rows"]),
             }
-            if covered == 0:
+            if expected == 0:
+                counts["off"] += 1
+                info["status"] = "off"
+                info["label"] = cal.user_holiday(user, w) or "Giorno non lavorativo"
+            elif covered == 0:
                 counts["missing"] += 1
                 info.update(status="missing", missing_hours=expected)
                 totals["missing"] += expected
@@ -593,6 +721,9 @@ def compute_presence(results, columns, date_col, user_col):
         gm["total_missing_hours"] += totals["missing"]
         gm["total_extra_hours"] += totals["extra"]
         gm["total_out_of_hours"] += totals["out"]
+        gm["total_off_days"] += counts["off"]
+        gm["total_available_hours"] += totals["available"]
+        sat = round(totals["client"] / totals["available"] * 100, 1) if totals["available"] else 0.0
         users_summary.append({
             "user": user,
             "total_hours": round(totals["worked"], 2),
@@ -602,10 +733,23 @@ def compute_presence(results, columns, date_col, user_col):
             "days": user_days,
             "status_counts": counts,
             "context_switching": cs["per_user"].get(user, empty_cs()),
+            "saturation": {
+                "percent": sat,
+                "level": saturation_level(sat, cal.saturation_target),
+                "client_hours": round(totals["client"], 2),
+                "available_hours": round(totals["available"], 2),
+            },
+            "sede": cal.sede(user),
+            "email": cal.email(user),
         })
 
     results.extend(virtual_rows)
-    for k in ("total_hours", "total_missing_hours", "total_extra_hours", "total_out_of_hours"):
+    client_in_period = sum(u["saturation"]["client_hours"] for u in users_summary)
+    if gm["total_available_hours"]:
+        gm["saturation"] = round(client_in_period / gm["total_available_hours"] * 100, 1)
+    gm["saturation_level"] = saturation_level(gm["saturation"], cal.saturation_target)
+    for k in ("total_hours", "total_missing_hours", "total_extra_hours", "total_out_of_hours",
+              "total_available_hours"):
         gm[k] = round(gm[k], 2)
     summary["users"] = sorted(
         users_summary,
@@ -624,7 +768,7 @@ def _sort_results(results, date_col, user_col):
 # Pipeline completa
 # ---------------------------------------------------------------------------
 
-def analyze_timesheet(filename, contents, compiled_rules, ollama_url=None, model=None):
+def analyze_timesheet(filename, contents, compiled_rules, ollama_url=None, model=None, calendar=None):
     df = normalize_dataframe(read_dataframe(filename, contents))
     results, ambiguous = check_rows(df, compiled_rules)
     ai_check_descriptions(results, ambiguous, ollama_url, model)
@@ -639,11 +783,14 @@ def analyze_timesheet(filename, contents, compiled_rules, ollama_url=None, model
         for r in results:
             r[user_col] = 'Dipendente'
 
+    shared = []
     if date_col and user_col:
         flag_duplicates(results, date_col, user_col)
-        presence = compute_presence(results, columns, date_col, user_col)
+        shared = detect_shared_work(results, date_col, user_col)
+        presence = compute_presence(results, columns, date_col, user_col, calendar)
     else:
-        presence = compute_presence([], columns, date_col, user_col)
+        presence = compute_presence([], columns, date_col, user_col, calendar)
+    presence["shared_work"] = shared
 
     for r in results:
         r.pop('_Virtuale', None)

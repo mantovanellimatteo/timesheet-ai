@@ -5,12 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Timesheet-AI | Smeup</title>
     <!-- tsParticles Bundle -->
-    <script src="https://cdn.jsdelivr.net/npm/tsparticles@2.12.0/tsparticles.bundle.min.js"></script>
+    <script src="vendor/tsparticles-2.12.0.bundle.min.js"></script>
     <!-- html2pdf -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.js"></script>
+    <script src="vendor/html2pdf-0.10.1.bundle.min.js"></script>
+    <script src="vendor/chart-4.4.1.umd.js"></script>
     <!-- Confetti -->
-    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <script src="vendor/confetti-1.6.0.browser.js"></script>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body data-theme="dark">
@@ -98,6 +98,9 @@
                             <span class="tab-icon">⚖️</span> 3. Controllo Logico & Note
                             <span class="tile-badge-alert hidden" id="quality-badge-alert">0</span>
                         </button>
+                        <button class="tile-tab-btn" id="btn-tile-clients" onclick="switchTile('tile-clients')">
+                            <span class="tab-icon">🏢</span> 4. Clienti & Commesse
+                        </button>
                     </div>
 
                     <!-- ============================================== -->
@@ -119,7 +122,7 @@
                                 <span class="kpi-value" id="kpi-presence-partial" style="font-size: 1.8rem; font-weight: 800; color: #f59e0b;">0</span>
                             </div>
                             <div class="kpi-card" style="flex: 1; min-width: 170px; background: var(--bg-card); padding: 18px; border-radius: 14px; border: 1px solid var(--border); text-align: center;">
-                                <span class="kpi-label" style="display: block; font-size: 0.78rem; color: #ef4444; margin-bottom: 6px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">🔴 Giornate Assenti (0h)</span>
+                                <span class="kpi-label" style="display: block; font-size: 0.78rem; color: #ef4444; margin-bottom: 6px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">🔴 Giornate Mancanti (0h)</span>
                                 <span class="kpi-value" id="kpi-presence-missing" style="font-size: 1.8rem; font-weight: 800; color: #ef4444;">0</span>
                             </div>
                             <div class="kpi-card" style="flex: 1; min-width: 170px; background: var(--bg-card); padding: 18px; border-radius: 14px; border: 1px solid var(--border); text-align: center;">
@@ -132,7 +135,7 @@
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
                             <h4 style="margin: 0; color: var(--text-primary); font-size: 1rem; display: flex; align-items: center; gap: 8px;">
                                 <span>📅 Matrice Giornaliera di Compliance</span>
-                                <span style="font-size: 0.78rem; padding: 2px 8px; border-radius: 999px; background: rgba(255,255,255,0.08); color: var(--text-secondary); font-weight: 600;">Target: 8.0 ore/giorno feriale</span>
+                                <span style="font-size: 0.78rem; padding: 2px 8px; border-radius: 999px; background: rgba(255,255,255,0.08); color: var(--text-secondary); font-weight: 600;">Target: orario contrattuale (default 8h/giorno)</span>
                             </h4>
                             <span style="font-size: 0.8rem; color: var(--text-secondary);">💡 Clicca su un badge per filtrare le righe del collaboratore</span>
                         </div>
@@ -143,6 +146,54 @@
                                     <tr id="presence-head"></tr>
                                 </thead>
                                 <tbody id="presence-body"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- ============================================== -->
+                    <!-- TILE 4: CLIENTI, COMMESSE & LAVORO DI SQUADRA  -->
+                    <!-- ============================================== -->
+                    <div id="tile-clients" class="tile-pane">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+                            <h4 style="margin: 0; color: var(--text-primary); font-size: 1rem;">🏢 Riepilogo ore per Cliente (attività cliente)</h4>
+                            <span id="clients-summary-info" style="font-size: 0.8rem; color: var(--text-secondary);"></span>
+                        </div>
+                        <div class="table-scroll-wrapper clients-table-wrapper">
+                            <table class="clients-table">
+                                <thead>
+                                    <tr>
+                                        <th class="text-left">Cliente</th>
+                                        <th>Ore totali</th>
+                                        <th title="CLI Gettoni">Gettoni</th>
+                                        <th title="Ore gettone con 'Da addebitare'">di cui da addebitare</th>
+                                        <th title="CLI Attività a corpo">A corpo</th>
+                                        <th title="CLI Attività a consuntivo">A consuntivo</th>
+                                        <th title="CLI Servizio gestito / contratto">Servizio / Contratto</th>
+                                        <th>Altro</th>
+                                        <th>Interventi</th>
+                                        <th class="text-left">Tecnici</th>
+                                        <th class="text-left">Commesse</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="clients-table-body"></tbody>
+                                <tfoot id="clients-table-foot"></tfoot>
+                            </table>
+                        </div>
+
+                        <h4 style="margin: 28px 0 12px 0; color: var(--text-primary); font-size: 1rem;">👥 Interventi condivisi (lavoro di squadra)</h4>
+                        <p style="margin: 0 0 12px 0; font-size: 0.8rem; color: var(--text-secondary);">Stesso cliente e giorno, tecnici diversi, note simili o che citano il collega. In rosso gli interventi addebitati da più tecnici: verificare il doppio addebito.</p>
+                        <div class="table-scroll-wrapper clients-table-wrapper">
+                            <table class="clients-table">
+                                <thead>
+                                    <tr>
+                                        <th class="text-left">Data</th>
+                                        <th class="text-left">Cliente</th>
+                                        <th class="text-left">Tecnici (ore)</th>
+                                        <th class="text-left">Addebito</th>
+                                        <th class="text-left">Note</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="shared-work-body"></tbody>
                             </table>
                         </div>
                     </div>
@@ -194,6 +245,11 @@
                                 <span class="kpi-label" style="display: block; font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 8px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Context Switching</span>
                                 <span class="kpi-value" id="kpi-context-switching" style="font-size: 2rem; font-weight: 800; color: #3b82f6;">0</span>
                                 <span id="kpi-context-sub" style="display: block; font-size: 0.8rem; color: var(--text-secondary); margin-top: 4px; font-weight: 600;">media giornaliera (solo attività cliente)</span>
+                            </div>
+                            <div class="kpi-card" title="Ore cliente / ore disponibili (orario contrattuale al netto di assenze e festivi)" style="flex: 1; min-width: 200px; background: var(--bg-card); padding: 20px; border-radius: 14px; border: 1px solid var(--border); text-align: center;">
+                                <span class="kpi-label" style="display: block; font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 8px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Saturazione</span>
+                                <span class="kpi-value" id="kpi-saturation" style="font-size: 2rem; font-weight: 800; color: var(--accent);">0%</span>
+                                <span id="kpi-saturation-sub" style="display: block; font-size: 0.8rem; color: var(--text-secondary); margin-top: 4px; font-weight: 600;">ore cliente / ore disponibili</span>
                             </div>
                         </div>
 

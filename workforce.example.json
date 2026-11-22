@@ -1,0 +1,26 @@
+{
+  "default_daily_hours": 8,
+  "saturation_target": 70,
+
+  "company_closures": [
+    {"date": "2026-12-24", "name": "Chiusura aziendale"},
+    {"date": "08-14", "name": "Ponte di Ferragosto (ogni anno)"}
+  ],
+
+  "sede_holidays": {
+    "TOR": [{"date": "06-24", "name": "San Giovanni (Torino)"}],
+    "XXX": [{"date": "MM-GG", "name": "Patrono da compilare"}]
+  },
+
+  "technicians": {
+    "COGNOME NOME": {
+      "email": "nome.cognome@azienda.it",
+      "sede": "TOR",
+      "daily_hours": 8
+    },
+    "COGNOME PARTTIME": {
+      "email": "",
+      "daily_hours": {"lun": 4, "mar": 4, "mer": 4, "gio": 4, "ven": 4}
+    }
+  }
+}

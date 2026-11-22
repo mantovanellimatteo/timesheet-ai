@@ -311,7 +311,9 @@ function startAnalysis() {
             if (periodBadge && currentPresenceSummary && currentPresenceSummary.working_days && currentPresenceSummary.working_days.length > 0) {
                 const wDays = currentPresenceSummary.working_days;
                 const periodText = wDays.length === 1 ? wDays[0] : `${wDays[0]} — ${wDays[wDays.length - 1]}`;
-                periodBadge.textContent = `📅 Periodo: ${periodText} (${wDays.length} gg lavorativi)`;
+                const hol = currentPresenceSummary.holidays || [];
+                periodBadge.textContent = `📅 Periodo: ${periodText} (${wDays.length} gg lavorativi)` +
+                    (hol.length ? ` · esclusi: ${hol.map(h => `${h.date} ${h.name}`).join(', ')}` : '');
             } else if (periodBadge) {
                 periodBadge.textContent = '';
             }
@@ -536,6 +538,7 @@ function updateDashboardView() {
     renderAnalyticsTile();
     renderResultsTable();
     updateQualityKPIs();
+    renderClientsTile();
 }
 
 // ===== TILE 1: CONTROLLO PRESENZA ORE =====
@@ -600,6 +603,11 @@ function renderPresenceTile() {
     thCS.className = 'col-cs';
     thCS.textContent = 'Frammentazione (CS)';
     head.appendChild(thCS);
+
+    const thSat = document.createElement('th');
+    thSat.className = 'col-cs';
+    thSat.textContent = 'Saturazione';
+    head.appendChild(thSat);
     
     (ps.working_days || []).forEach(dayStr => {
         const thDay = document.createElement('th');
@@ -620,6 +628,7 @@ function renderPresenceTile() {
                 <span class="user-avatar-icon">👤</span>
                 <span class="user-name-text">${escapeHtml(u.user)}</span>
             </div>
+            <button class="mail-btn" title="Prepara email con le anomalie di ${escapeHtml(u.user)}" onclick="event.stopPropagation(); openAnomaliesMail('${escapeHtml(u.user)}')">✉️</button>
         `;
         tr.appendChild(tdUser);
         
@@ -667,6 +676,12 @@ function renderPresenceTile() {
         const cs = u.context_switching || {};
         tdCS.innerHTML = `<span class="context-switching-pill level-${cs.level || 'low'}" title="${cs.avg_accounts_per_day || 0} account/giorno in media, ${cs.total_unique_accounts || 0} account distinti">🔀 ${(cs.percent || 0).toFixed(1)}%</span>`;
         tr.appendChild(tdCS);
+
+        const tdSat = document.createElement('td');
+        tdSat.className = 'col-cs';
+        const sat = u.saturation || {};
+        tdSat.innerHTML = `<span class="saturation-pill level-${sat.level || 'low'}" title="${sat.client_hours || 0}h cliente su ${sat.available_hours || 0}h disponibili">📈 ${(sat.percent || 0).toFixed(0)}%</span>`;
+        tr.appendChild(tdSat);
         
         // Giorni
         (ps.working_days || []).forEach(dayStr => {
@@ -676,14 +691,16 @@ function renderPresenceTile() {
             const click = `onclick="filterByTechAndDate('${escapeHtml(u.user)}', '${dayStr}')"`;
             const outNote = (dInfo && dInfo.out_of_hours) ? ` + ${dInfo.out_of_hours}h fuori orario (non conteggiate)` : '';
             const absNote = (dInfo && dInfo.absence_hours) ? ` (di cui ${dInfo.absence_hours}h assenza)` : '';
-            if (!dInfo || dInfo.status === 'missing') {
-                tdDay.innerHTML = `<span class="day-badge status-missing" ${click} title="Nessuna ora in orario lavorativo. Mancano 8h.${outNote}"><span>0.0h</span><span class="day-badge-sub">🔴 Mancante</span></span>`;
+            if (dInfo && dInfo.status === 'off') {
+                tdDay.innerHTML = `<span class="day-badge status-off" ${click} title="${escapeHtml(dInfo.label || 'Giorno non lavorativo')}: nessuna ora prevista"><span>${dInfo.hours}h</span><span class="day-badge-sub">⚪ ${escapeHtml(dInfo.label || 'Non lav.')}</span></span>`;
+            } else if (!dInfo || dInfo.status === 'missing') {
+                tdDay.innerHTML = `<span class="day-badge status-missing" ${click} title="Nessuna ora in orario lavorativo. Mancano ${dInfo ? dInfo.missing_hours : 8}h.${outNote}"><span>0.0h</span><span class="day-badge-sub">🔴 Mancante</span></span>`;
             } else if (dInfo.status === 'partial') {
-                tdDay.innerHTML = `<span class="day-badge status-partial" ${click} title="Registrate ${dInfo.hours}h su 8h${absNote}. Mancano ${dInfo.missing_hours}h.${outNote}"><span>${dInfo.hours}h</span><span class="day-badge-sub">🟡 -${dInfo.missing_hours}h</span></span>`;
+                tdDay.innerHTML = `<span class="day-badge status-partial" ${click} title="Registrate ${dInfo.hours}h su ${dInfo.expected_hours}h${absNote}. Mancano ${dInfo.missing_hours}h.${outNote}"><span>${dInfo.hours}h</span><span class="day-badge-sub">🟡 -${dInfo.missing_hours}h</span></span>`;
             } else if (dInfo.status === 'absent') {
                 tdDay.innerHTML = `<span class="day-badge status-absent" ${click} title="Giornata coperta da assenza (${dInfo.absence_hours}h)"><span>${dInfo.hours}h</span><span class="day-badge-sub">🔵 Assenza</span></span>`;
             } else if (dInfo.extra_hours > 0) {
-                tdDay.innerHTML = `<span class="day-badge status-over" ${click} title="Esubero: ${dInfo.hours}h in orario lavorativo${absNote}, +${dInfo.extra_hours}h oltre le 8h.${outNote}"><span>${dInfo.hours}h</span><span class="day-badge-sub">🟠 +${dInfo.extra_hours}h</span></span>`;
+                tdDay.innerHTML = `<span class="day-badge status-over" ${click} title="Esubero: ${dInfo.hours}h in orario lavorativo${absNote}, +${dInfo.extra_hours}h oltre le ${dInfo.expected_hours}h.${outNote}"><span>${dInfo.hours}h</span><span class="day-badge-sub">🟠 +${dInfo.extra_hours}h</span></span>`;
             } else {
                 const sub = dInfo.out_of_hours ? `🟢 OK +${dInfo.out_of_hours}h f.o.` : '🟢 OK';
                 tdDay.innerHTML = `<span class="day-badge status-ok" ${click} title="Giornata regolare: ${dInfo.hours}h${absNote}${outNote}"><span>${dInfo.hours}h</span><span class="day-badge-sub">${sub}</span></span>`;
@@ -796,6 +813,22 @@ function renderAnalyticsTile() {
     if (elCS) {
         elCS.textContent = csVal.toFixed(1) + '%';
         elCS.style.color = csColor(csVal);
+    }
+
+    // Saturazione KPI (ore cliente / ore disponibili)
+    const elSat = document.getElementById('kpi-saturation');
+    const elSatSub = document.getElementById('kpi-saturation-sub');
+    if (elSat && currentPresenceSummary) {
+        const gmS = currentPresenceSummary.global_metrics || {};
+        let satVal = gmS.saturation || 0, satLevel = gmS.saturation_level || 'low', client = gmS.total_client_hours || 0, avail = gmS.total_available_hours || 0;
+        if (selectedTeamMember !== 'ALL') {
+            const uObj = (currentPresenceSummary.users || []).find(u => u.user === selectedTeamMember);
+            const st = (uObj && uObj.saturation) || {};
+            satVal = st.percent || 0; satLevel = st.level || 'low'; client = st.client_hours || 0; avail = st.available_hours || 0;
+        }
+        elSat.textContent = satVal.toFixed(0) + '%';
+        elSat.style.color = satLevel === 'high' ? 'var(--success)' : (satLevel === 'medium' ? '#f59e0b' : '#ef4444');
+        if (elSatSub) elSatSub.textContent = `${client.toFixed(1)}h cliente / ${avail.toFixed(1)}h disponibili (obiettivo ${gmS.saturation_target || 70}%)`;
     }
     
     generateCharts(activeData);
@@ -913,6 +946,17 @@ function renderResultsTable() {
             body.appendChild(trBand);
         }
 
+        // Render Info Band (intervento condiviso)
+        if (row['_Condiviso']) {
+            const trBand = document.createElement('tr');
+            trBand.className = 'info-band';
+            const tdBand = document.createElement('td');
+            tdBand.colSpan = columns.length;
+            tdBand.innerHTML = `<strong>👥 SQUADRA:</strong> ${escapeHtml(row['_Condiviso'])}`;
+            trBand.appendChild(tdBand);
+            body.appendChild(trBand);
+        }
+
         // Render AI Warning Band
         if (hasAiWarning) {
             const trBand = document.createElement('tr');
@@ -958,6 +1002,146 @@ function renderResultsTable() {
         tr.appendChild(td);
         body.appendChild(tr);
     }
+}
+
+// ===== TILE 4: CLIENTI & COMMESSE =====
+function clientBucket(row) {
+    const g = String(row['Gruppo TimeSheet'] || row['Gruppo Timesheet'] || row['Gruppo'] || '').toUpperCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    if (g.includes('GETTON')) return 'gettoni';
+    if (g.includes('CORPO')) return 'corpo';
+    if (g.includes('CONSUNTIVO')) return 'consuntivo';
+    if (g.includes('SERVIZIO') || g.includes('CONTRATT')) return 'servizio';
+    return 'altro';
+}
+
+function renderClientsTile() {
+    const body = document.getElementById('clients-table-body');
+    const foot = document.getElementById('clients-table-foot');
+    const sharedBody = document.getElementById('shared-work-body');
+    if (!body) return;
+
+    const rows = getActiveData().filter(r => r['_Categoria'] === 'Cliente');
+    const byClient = {};
+    const tot = { ore: 0, gettoni: 0, addebito: 0, corpo: 0, consuntivo: 0, servizio: 0, altro: 0, n: 0 };
+    rows.forEach(r => {
+        const acc = String(r['Account'] || r['Cliente'] || r['Commessa'] || 'Senza cliente').trim() || 'Senza cliente';
+        const c = byClient[acc] || (byClient[acc] = { ore: 0, gettoni: 0, addebito: 0, corpo: 0, consuntivo: 0, servizio: 0, altro: 0, n: 0, techs: new Set(), commesse: new Set() });
+        const ore = rowHours(r);
+        const b = clientBucket(r);
+        const billed = String(r['T.Registrazione Gettoni'] || '').trim().toUpperCase() === 'DA ADDEBITARE';
+        for (const t of [c, tot]) {
+            t.ore += ore; t[b] += ore; t.n++;
+            if (billed) t.addebito += ore;
+        }
+        const tech = getUserOfRow(r);
+        if (tech) c.techs.add(tech);
+        if (r['Commessa']) c.commesse.add(String(r['Commessa']));
+    });
+
+    const fmt = v => v ? v.toFixed(2).replace(/\.?0+$/, '') : '–';
+    body.innerHTML = '';
+    Object.entries(byClient).sort((a, b) => b[1].ore - a[1].ore).forEach(([acc, c]) => {
+        const tr = document.createElement('tr');
+        tr.title = 'Clicca per vedere le registrazioni di questo cliente';
+        tr.onclick = () => filterByClient(acc);
+        tr.innerHTML = `
+            <td class="text-left"><strong>${escapeHtml(acc)}</strong></td>
+            <td><strong>${fmt(c.ore)}</strong></td>
+            <td>${fmt(c.gettoni)}</td>
+            <td>${fmt(c.addebito)}</td>
+            <td>${fmt(c.corpo)}</td>
+            <td>${fmt(c.consuntivo)}</td>
+            <td>${fmt(c.servizio)}</td>
+            <td>${fmt(c.altro)}</td>
+            <td>${c.n}</td>
+            <td class="text-left wrap">${escapeHtml([...c.techs].join(', '))}</td>
+            <td class="text-left wrap">${escapeHtml([...c.commesse].join(', '))}</td>`;
+        body.appendChild(tr);
+    });
+    if (foot) {
+        foot.innerHTML = `<tr><td class="text-left">Totale (${Object.keys(byClient).length} clienti)</td><td>${fmt(tot.ore)}</td><td>${fmt(tot.gettoni)}</td><td>${fmt(tot.addebito)}</td><td>${fmt(tot.corpo)}</td><td>${fmt(tot.consuntivo)}</td><td>${fmt(tot.servizio)}</td><td>${fmt(tot.altro)}</td><td>${tot.n}</td><td></td><td></td></tr>`;
+    }
+    const info = document.getElementById('clients-summary-info');
+    if (info) info.textContent = selectedTeamMember === 'ALL' ? 'Tutto il team' : `Tecnico: ${selectedTeamMember}`;
+
+    if (sharedBody) {
+        const shared = ((currentPresenceSummary && currentPresenceSummary.shared_work) || [])
+            .filter(s => selectedTeamMember === 'ALL' || s.users.includes(selectedTeamMember));
+        sharedBody.innerHTML = '';
+        if (shared.length === 0) {
+            sharedBody.innerHTML = `<tr><td colspan="5" style="text-align:center; color: var(--text-secondary); padding: 20px;">Nessun intervento condiviso rilevato.</td></tr>`;
+        }
+        shared.forEach(s => {
+            const tr = document.createElement('tr');
+            const double = (s.billed_by || []).length > 1;
+            if (double) tr.className = 'double-billing';
+            tr.onclick = () => filterByClient(s.account);
+            const techs = s.users.map(u => `${escapeHtml(u)} (${s.hours[u]}h)`).join('<br>');
+            const billing = double
+                ? `<span style="color:#ef4444; font-weight:700;">⚠️ Addebitato da ${s.billed_by.length} tecnici</span>`
+                : ((s.billed_by || []).length === 1 ? `Da addebitare: ${escapeHtml(s.billed_by[0])}` : 'Non a gettone');
+            tr.innerHTML = `
+                <td class="text-left">${escapeHtml(s.date)}</td>
+                <td class="text-left"><strong>${escapeHtml(s.account)}</strong></td>
+                <td class="text-left">${techs}</td>
+                <td class="text-left">${billing}</td>
+                <td class="text-left wrap">${s.notes.map(n => escapeHtml(n)).join('<br>')}</td>`;
+            sharedBody.appendChild(tr);
+        });
+    }
+}
+
+function filterByClient(account) {
+    const searchInput = document.getElementById('search-table-input');
+    if (searchInput) searchInput.value = account || '';
+    const filterType = document.getElementById('filter-type-select');
+    if (filterType) filterType.value = 'ALL_ROWS';
+    switchTile('tile-quality');
+    renderResultsTable();
+}
+
+// ===== EMAIL ANOMALIE PER TECNICO (mailto) =====
+const MAILTO_MAX_BODY = 1800; // i client di posta troncano URL troppo lunghi
+
+function openAnomaliesMail(user) {
+    const url = buildAnomaliesMailto(user);
+    if (url) window.location.href = url;
+}
+
+function buildAnomaliesMailto(user) {
+    if (!currentData) return null;
+    const uObj = ((currentPresenceSummary && currentPresenceSummary.users) || []).find(u => u.user === user) || {};
+    const wDays = (currentPresenceSummary && currentPresenceSummary.working_days) || [];
+    const period = wDays.length ? `${wDays[0]} - ${wDays[wDays.length - 1]}` : '';
+
+    const lines = [];
+    currentData.filter(r => getUserOfRow(r) === user).forEach(r => {
+        const msgs = [r['_Errore_Logico'], r['_Avviso'], r['_Avviso_IA']].filter(Boolean).join(' | ');
+        if (!msgs) return;
+        const d = r['Data'] || r['Giorno'] || r['Data Evasione'] || '';
+        const acc = r['Account'] || r['Commessa'] || '';
+        const ore = r['Consuntivo Ore'] || r['Ore'] || '';
+        lines.push(`- ${d}${acc ? ' · ' + acc : ''}${ore ? ' · ' + ore + 'h' : ''}: ${msgs}`);
+    });
+
+    let body = `Ciao,\n\nnel controllo del timesheet${period ? ' del periodo ' + period : ''} sono emerse queste segnalazioni da verificare:\n\n`;
+    if (lines.length === 0) {
+        body += 'Nessuna anomalia rilevata, grazie!\n';
+    } else {
+        let included = 0;
+        for (const l of lines) {
+            if ((body + l).length > MAILTO_MAX_BODY) break;
+            body += l + '\n';
+            included++;
+        }
+        if (included < lines.length) body += `... e altre ${lines.length - included} segnalazioni.\n`;
+    }
+    body += '\nPuoi correggere le registrazioni sul gestionale? Grazie.\n';
+
+    const subject = `Timesheet${period ? ' ' + period : ''}: segnalazioni da verificare`;
+    const to = uObj.email || '';
+    return `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 }
 
 // ===== CHART.JS DASHBOARD =====
